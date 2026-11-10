@@ -57,7 +57,7 @@ export function SectionHome({ courseSlug }: { courseSlug: string }) {
 
   return (
     <div className={COLUMN}>
-      <Link href="/" className="font-mono text-xs text-stone-500 hover:text-stone-800">
+      <Link href="/" className="inline-flex min-h-11 items-center font-mono text-xs text-stone-500 hover:text-stone-800">
         ← All classes
       </Link>
       <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>

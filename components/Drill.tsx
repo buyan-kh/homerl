@@ -400,7 +400,7 @@ export function Drill({ deckSlug }: DrillProps) {
   if (phase === "recap") {
     return (
       <div className={DRILL_COLUMN}>
-        <Link href={courseHref} className="font-mono text-xs text-stone-500 hover:text-stone-800">
+        <Link href={courseHref} className="inline-flex min-h-11 items-center font-mono text-xs text-stone-500 hover:text-stone-800">
           ← {courseLabel}
         </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
@@ -458,7 +458,7 @@ export function Drill({ deckSlug }: DrillProps) {
   if (phase !== "drill" || !current) {
     return (
       <div className={DRILL_COLUMN}>
-        <Link href={courseHref} className="font-mono text-xs text-stone-500 hover:text-stone-800">
+        <Link href={courseHref} className="inline-flex min-h-11 items-center font-mono text-xs text-stone-500 hover:text-stone-800">
           ← {courseLabel}
         </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
@@ -494,7 +494,7 @@ export function Drill({ deckSlug }: DrillProps) {
   const card = memory[current.id];
 
   return (
-    <div className="mx-auto grid w-full max-w-[60rem] grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,42rem)_17rem] lg:justify-center">
+    <div className="mx-auto grid w-full min-w-0 max-w-[60rem] grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,42rem)_17rem] lg:justify-center lg:gap-8">
       <section className="flex min-w-0 flex-col items-start gap-4">
         <ChapterFilter chapters={chapters} value={chapterFilter} onChange={changeChapterFilter} />
         <div className="flex items-center gap-2">
@@ -528,7 +528,7 @@ export function Drill({ deckSlug }: DrillProps) {
             hint="Write from memory first. ⌘Enter or Ctrl+Enter reveals the model answer."
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            minRows={6}
+            minRows={4}
             maxRows={12}
             expandable
             spellCheck

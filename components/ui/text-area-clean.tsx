@@ -373,9 +373,8 @@ const css = /* css */ `
 .ui-tac__expand svg { display: block; }
 .ui-tac__swap { display: grid; animation: ui-tac-swap 280ms var(--ui-tac-ease); }
 @media (pointer: coarse) {
-  .ui-tac__expand { width: 32px; height: 32px; }
-  .ui-tac__expand::before { content: ""; position: absolute; inset: -4px; }
-  .ui-tac[data-expandable] .ui-tac__input { padding-inline-end: 42px; }
+  .ui-tac__expand { width: 44px; height: 44px; }
+  .ui-tac[data-expandable] .ui-tac__input { padding-inline-end: 52px; }
 }
 
 /* Under the field: the hint, or the error in its place, and the count */

@@ -196,6 +196,9 @@ const css = /* css */ `
   color: rgba(0, 0, 0, 0.88);
 }
 .ui-drill-rbc__btn:disabled { opacity: 0.45; cursor: default; }
+@media (pointer: coarse) {
+  .ui-drill-rbc__btn { width: 44px; height: 44px; }
+}
 .ui-drill-rbc__btn[data-tone="love"] {
   background: rgba(240, 68, 56, 0.1);
   box-shadow: inset 0 0 0 0.5px rgba(240, 68, 56, 0.35);

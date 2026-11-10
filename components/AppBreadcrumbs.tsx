@@ -57,26 +57,30 @@ export function AppBreadcrumbs() {
 
   if (crumbs.length < 2) {
     return (
-      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-background px-4 py-2 md:hidden">
-        <SidebarTrigger className="size-8" />
+      <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-2 pt-[env(safe-area-inset-top)] md:hidden">
+        <SidebarTrigger className="size-11! shrink-0" />
+        <p className="truncate text-sm font-medium">homeRL</p>
       </header>
     );
   }
 
   return (
-    <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6">
-      <SidebarTrigger className="size-8 md:hidden" />
-      <Breadcrumbs variant="supporting" label="Study location">
-        {crumbs.map((crumb, index) => (
+    <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-2 pt-[env(safe-area-inset-top)] sm:px-4">
+      <SidebarTrigger className="size-11! shrink-0 md:hidden" />
+      <div className="min-w-0 flex-1 overflow-x-auto">
+        <Breadcrumbs variant="supporting" label="Study location" className="w-max flex-nowrap">
+          {crumbs.map((crumb, index) => (
           <BreadcrumbItem
             key={crumb.key}
             href={crumb.href}
             isCurrent={index === crumbs.length - 1}
+            className="[&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center"
           >
-            {crumb.label}
-          </BreadcrumbItem>
-        ))}
-      </Breadcrumbs>
+              {crumb.label}
+            </BreadcrumbItem>
+          ))}
+        </Breadcrumbs>
+      </div>
     </header>
   );
 }

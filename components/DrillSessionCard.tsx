@@ -98,9 +98,8 @@ const css = /* css */ `
 .ui-dsc__title {
   padding: 14px 16px 12px;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .ui-dsc__rows { margin: 0; }
 .ui-dsc__row {

@@ -31,6 +31,7 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { getCourse, listCourses } from "@/lib/decks";
 import { deckStats } from "@/lib/scheduler";
@@ -47,6 +48,7 @@ function pathActive(pathname: string, href: string) {
 export function AppSidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
   const [name, setName] = useState("homeRL student");
   const [email, setEmail] = useState("Progress saved in this browser");
   const [cardsLearned, setCardsLearned] = useState(0);
@@ -56,6 +58,10 @@ export function AppSidebar() {
 
   const cs166 = getCourse("cs166");
   const courses = useMemo(() => listCourses(), []);
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname, setOpenMobile]);
 
   useEffect(() => {
     try {

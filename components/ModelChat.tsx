@@ -95,9 +95,9 @@ export function ModelChat() {
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="pointer-events-none fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 flex w-[min(100vw-2rem,22rem)] flex-col items-end gap-2">
       {open ? (
-        <div className="pointer-events-auto flex w-[min(100vw-2rem,22rem)] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+        <div className="pointer-events-auto flex max-h-[min(70dvh,32rem)] w-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg">
           <header className="flex items-center justify-between border-b border-border px-3 py-2">
             <p className="text-sm font-medium">Cursor chat</p>
             <div className="flex gap-1">
@@ -109,7 +109,7 @@ export function ModelChat() {
               </Button>
             </div>
           </header>
-          <div ref={listRef} className="flex max-h-64 flex-col gap-2 overflow-y-auto px-3 py-2 text-left text-sm">
+          <div ref={listRef} className="flex max-h-[min(16rem,40dvh)] flex-col gap-2 overflow-y-auto px-3 py-2 text-left text-sm">
             {messages.map((msg, i) => (
               <p
                 key={`${i}-${msg.role}`}

@@ -261,9 +261,13 @@ const css = /* css */ `
 }
 /* Touch screens: every size grows to a comfortable tap height – 32 · 34 · 36 – the look stays the same */
 @media (pointer: coarse) {
-  .ui-buttonc[data-size="sm"] { --h: 32px; }
-  .ui-buttonc[data-size="md"] { --h: 34px; }
-  .ui-buttonc[data-size="lg"] { --h: 36px; }
+  .ui-buttonc,
+  .ui-buttonc[data-size="sm"],
+  .ui-buttonc[data-size="md"],
+  .ui-buttonc[data-size="lg"] {
+    --h: 44px;
+    --px: 14px;
+  }
 }
 /* An icon sits closer to the edge than the text, so both look evenly spaced */
 .ui-buttonc[data-icon-left] {

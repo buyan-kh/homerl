@@ -36,7 +36,7 @@ export function DeckHome() {
             padding={6}
             elevation="med"
             width="100%"
-            className="bg-(--color-accent)! text-(--color-on-accent)! p-(--spacing-6)!"
+            className="bg-(--color-accent)! text-(--color-on-accent)! p-4! sm:p-(--spacing-6)!"
           >
             <Stack gap={4}>
               <HStack gap={3} align="end" justify="between" wrap="wrap">
@@ -46,7 +46,7 @@ export function DeckHome() {
                   weight="semibold"
                   color="inherit"
                   textWrap="balance"
-                  className="text-(length:--text-display-2-size)! leading-(--text-display-2-leading)! font-semibold!"
+                  className="text-[clamp(1.75rem,7vw,2.1875rem)]! leading-[1.15]! font-semibold!"
                 >
                   {course.title}
                 </Heading>

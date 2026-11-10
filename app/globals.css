@@ -134,4 +134,16 @@ body {
   html {
     @apply font-sans;
   }
+  main {
+    min-inline-size: 0;
+  }
+  .katex-display {
+    max-width: 100%;
+  }
+  @media (pointer: coarse) {
+    [data-sidebar="menu-button"],
+    [data-sidebar="menu-sub-button"] {
+      min-height: 2.75rem;
+    }
+  }
 }

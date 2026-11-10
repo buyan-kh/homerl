@@ -1,58 +1,85 @@
+import { scheduleProgressPush } from "./progress-sync";
 import type { DeckMemory } from "./types";
 
-const KEY = "homerl-memory-v1";
-const EVENT = "homerl-memory";
+const KEY_PREFIX = "homerl-memory-v2";
+const LEGACY_KEY = "homerl-memory-v1";
+const EVENT_PREFIX = "homerl-memory";
 
 const EMPTY_MEMORY: DeckMemory = {};
 
-let cachedRaw: string | null = null;
-let cachedMemory: DeckMemory = EMPTY_MEMORY;
+const cache = new Map<string, { raw: string | null; memory: DeckMemory }>();
 
-export function getServerMemory(): DeckMemory {
+function storageKey(deckSlug: string) {
+  return `${KEY_PREFIX}:${deckSlug}`;
+}
+
+function eventName(deckSlug: string) {
+  return `${EVENT_PREFIX}:${deckSlug}`;
+}
+
+function migrateLegacy(deckSlug: string) {
+  if (typeof window === "undefined") return;
+  if (deckSlug !== "cs166") return;
+  if (localStorage.getItem(storageKey(deckSlug))) return;
+  const legacy = localStorage.getItem(LEGACY_KEY);
+  if (legacy) localStorage.setItem(storageKey(deckSlug), legacy);
+}
+
+export function getServerMemory(_deckSlug: string): DeckMemory {
   return EMPTY_MEMORY;
 }
 
-export function loadMemory(): DeckMemory {
+export function loadMemory(deckSlug: string): DeckMemory {
   if (typeof window === "undefined") return EMPTY_MEMORY;
+
+  migrateLegacy(deckSlug);
 
   let raw: string | null;
   try {
-    raw = localStorage.getItem(KEY);
+    raw = localStorage.getItem(storageKey(deckSlug));
   } catch {
     return EMPTY_MEMORY;
   }
 
-  if (raw === cachedRaw) return cachedMemory;
+  const hit = cache.get(deckSlug);
+  if (hit && hit.raw === raw) return hit.memory;
 
-  cachedRaw = raw;
-  if (!raw) {
-    cachedMemory = EMPTY_MEMORY;
-    return cachedMemory;
+  let memory = EMPTY_MEMORY;
+  if (raw) {
+    try {
+      memory = JSON.parse(raw) as DeckMemory;
+    } catch {
+      memory = EMPTY_MEMORY;
+    }
   }
-
-  try {
-    cachedMemory = JSON.parse(raw) as DeckMemory;
-  } catch {
-    cachedMemory = EMPTY_MEMORY;
-  }
-  return cachedMemory;
+  cache.set(deckSlug, { raw, memory });
+  return memory;
 }
 
-export function saveMemory(memory: DeckMemory) {
-  localStorage.setItem(KEY, JSON.stringify(memory));
-  window.dispatchEvent(new Event(EVENT));
+export function saveMemory(deckSlug: string, memory: DeckMemory, opts?: { skipSync?: boolean }) {
+  const raw = JSON.stringify(memory);
+  localStorage.setItem(storageKey(deckSlug), raw);
+  cache.set(deckSlug, { raw, memory });
+  window.dispatchEvent(new Event(eventName(deckSlug)));
+  if (!opts?.skipSync) scheduleProgressPush(deckSlug);
 }
 
-export function clearMemory() {
-  localStorage.removeItem(KEY);
-  window.dispatchEvent(new Event(EVENT));
+export function clearMemory(deckSlug: string) {
+  localStorage.removeItem(storageKey(deckSlug));
+  cache.set(deckSlug, { raw: null, memory: EMPTY_MEMORY });
+  window.dispatchEvent(new Event(eventName(deckSlug)));
+  scheduleProgressPush(deckSlug);
 }
 
-export function subscribeMemory(onStoreChange: () => void) {
-  window.addEventListener(EVENT, onStoreChange);
-  window.addEventListener("storage", onStoreChange);
+export function subscribeMemory(deckSlug: string, onStoreChange: () => void) {
+  const localEvent = eventName(deckSlug);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === storageKey(deckSlug)) onStoreChange();
+  };
+  window.addEventListener(localEvent, onStoreChange);
+  window.addEventListener("storage", onStorage);
   return () => {
-    window.removeEventListener(EVENT, onStoreChange);
-    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(localEvent, onStoreChange);
+    window.removeEventListener("storage", onStorage);
   };
 }

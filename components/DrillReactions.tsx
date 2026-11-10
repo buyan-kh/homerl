@@ -48,7 +48,7 @@ export function DrillReactions({
       <style href="ui-drill-reactions" precedence="default">
         {css}
       </style>
-      <motionDirections />
+      <MotionDirections />
       <h3 className="text-sm font-medium text-foreground">How did you do?</h3>
       <div className="ui-drill-rbc" role="group" aria-label="Grade this card">
         <button
@@ -144,7 +144,7 @@ export function DrillReactions({
 }
 
 /** Explainer copy for docs / screen readers (rendered off-screen). */
-function motionDirections() {
+function MotionDirections() {
   return (
     <p className="sr-only">
       Refresh loads another question without grading. Heart likes this problem and turns red; it does

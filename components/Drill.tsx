@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CS166_TEST2 } from "../data/cs166-test2";
+import { getDeck } from "@/lib/decks";
 import { deckStats, isLearned, pickNext, applyGrade } from "../lib/scheduler";
 import { Button } from "@/components/ui/button-clean";
 import { ChangeSummary, type MetricChange } from "@/components/ui/change-summary-clean";
 import { DrillReactions } from "@/components/DrillReactions";
 import { TextArea } from "@/components/ui/text-area-clean";
-import { getServerLiked, loadLiked, subscribeLiked, toggleLiked } from "../lib/likes";
+import { pullProgress } from "@/lib/progress-sync";
+import { getServerLiked, loadLiked, saveLiked, subscribeLiked, toggleLiked } from "../lib/likes";
 import { clearMemory, getServerMemory, loadMemory, saveMemory, subscribeMemory } from "../lib/storage";
 import type { CardMemory, DeckMemory, Grade, Question } from "../lib/types";
 
@@ -74,17 +76,59 @@ function cardMetrics(card: CardMemory | undefined): MetricChange[] {
   return metrics;
 }
 
-export function Drill() {
-  const memory = useSyncExternalStore(subscribeMemory, loadMemory, getServerMemory);
-  const liked = useSyncExternalStore(subscribeLiked, loadLiked, getServerLiked);
+type DrillProps = {
+  deckSlug: string;
+};
+
+export function Drill({ deckSlug }: DrillProps) {
+  const deckDef = getDeck(deckSlug);
+  const questions = deckDef?.questions ?? [];
+
+  const memory = useSyncExternalStore(
+    (cb) => subscribeMemory(deckSlug, cb),
+    () => loadMemory(deckSlug),
+    () => getServerMemory(deckSlug),
+  );
+  const liked = useSyncExternalStore(
+    (cb) => subscribeLiked(deckSlug, cb),
+    () => loadLiked(deckSlug),
+    () => getServerLiked(deckSlug),
+  );
   const [current, setCurrent] = useState<Question | null>(null);
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [session, setSession] = useState({ asked: 0, gotIt: 0, missed: 0 });
+  const [hydrated, setHydrated] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const revealRef = useRef<HTMLDivElement>(null);
 
-  const stats = useMemo(() => deckStats(CS166_TEST2, memory), [memory]);
+  const stats = useMemo(() => deckStats(questions, memory), [questions, memory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const remote = await pullProgress(deckSlug);
+      if (cancelled || !remote) {
+        setHydrated(true);
+        return;
+      }
+      const local = loadMemory(deckSlug);
+      const localLiked = loadLiked(deckSlug);
+      const localEmpty = Object.keys(local).length === 0;
+      const remoteHas = Object.keys(remote.memory).length > 0;
+
+      if (localEmpty && remoteHas) {
+        saveMemory(deckSlug, remote.memory, { skipSync: true });
+      }
+      if (Object.keys(localLiked).length === 0 && Object.keys(remote.liked).length > 0) {
+        saveLiked(deckSlug, remote.liked, { skipSync: true });
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deckSlug]);
 
   useEffect(() => {
     if (!current) return;
@@ -101,6 +145,7 @@ export function Drill() {
       return;
     }
     const lines = [
+      `Deck: ${deckSlug}`,
       `Question id: ${current.id}`,
       current.chapter ? `Chapter: ${current.chapter}` : null,
       `Prompt: ${current.prompt}`,
@@ -108,12 +153,23 @@ export function Drill() {
       current.pattern ? `Pattern: ${current.pattern}` : null,
     ].filter(Boolean);
     sessionStorage.setItem("homerl-chat-context", lines.join("\n"));
-  }, [current, revealed]);
+  }, [current, revealed, deckSlug]);
+
+  if (!deckDef) {
+    return (
+      <div className={DRILL_COLUMN}>
+        <p className="text-sm text-muted-foreground">Unknown deck.</p>
+        <Link href="/" className="text-sm font-medium text-stone-900 underline">
+          Back home
+        </Link>
+      </div>
+    );
+  }
 
   function advanceToNext(nextMemory: DeckMemory) {
     setDraft("");
     setRevealed(false);
-    setCurrent(pickNext(CS166_TEST2, nextMemory, current?.id));
+    setCurrent(pickNext(questions, nextMemory, current?.id));
   }
 
   function grade(value: Grade) {
@@ -122,7 +178,7 @@ export function Drill() {
       ...memory,
       [current.id]: applyGrade(memory[current.id], value),
     };
-    saveMemory(nextMemory);
+    saveMemory(deckSlug, nextMemory);
     setSession((s) => ({
       asked: s.asked + 1,
       gotIt: s.gotIt + (value === "got_it" ? 1 : 0),
@@ -138,25 +194,38 @@ export function Drill() {
 
   function resetDeck() {
     if (!confirm("Clear your memory for this deck and start over?")) return;
-    clearMemory();
+    clearMemory(deckSlug);
     setSession({ asked: 0, gotIt: 0, missed: 0 });
     setDraft("");
     setRevealed(false);
     setCurrent(null);
   }
 
+  const deckTitle = deckDef.title;
+
+  if (!hydrated) {
+    return (
+      <div className={DRILL_COLUMN}>
+        <p className="font-mono text-xs text-stone-500">Loading progress…</p>
+      </div>
+    );
+  }
+
   if (!current) {
     return (
       <div className={DRILL_COLUMN}>
+        <Link href="/" className="font-mono text-xs text-stone-500 hover:text-stone-800">
+          ← All drills
+        </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
-        <h1 className="text-2xl font-semibold text-stone-900">CS 166 Test 2 drill</h1>
+        <h1 className="text-2xl font-semibold text-stone-900">{deckTitle}</h1>
         <p className="text-sm leading-6 text-muted-foreground">
           {stats.learned} of {stats.total} cards are already learned in this browser.
           Write an answer, reveal the model answer, and grade yourself. Missed questions come back more often.
         </p>
         <ChangeSummary
           title="Deck progress"
-          period="This browser"
+          period="Saved locally"
           changes={[
             {
               label: "Learned",
@@ -170,7 +239,7 @@ export function Drill() {
             },
           ]}
         />
-        <Button type="button" onClick={() => setCurrent(pickNext(CS166_TEST2, memory))}>
+        <Button type="button" onClick={() => setCurrent(pickNext(questions, memory))}>
           Start drilling
         </Button>
       </div>
@@ -184,8 +253,11 @@ export function Drill() {
   return (
     <div className={`${DRILL_COLUMN} gap-8`}>
       <header className="flex w-full flex-col items-start gap-3 border-b border-border pb-6">
+        <Link href="/" className="font-mono text-xs text-stone-500 hover:text-stone-800">
+          ← All drills
+        </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
-        <h1 className="mt-1 text-2xl font-semibold text-stone-900">CS 166 Test 2 drill</h1>
+        <h1 className="mt-1 text-2xl font-semibold text-stone-900">{deckTitle}</h1>
         <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground">
           <p>
             This session: {session.gotIt} solid, {session.missed} missed, {session.asked} reviewed
@@ -258,7 +330,7 @@ export function Drill() {
               key={`${current.id}-${revealed}`}
               canGrade={revealed}
               problemLiked={liked[current.id] === true}
-              onToggleProblemLike={() => toggleLiked(current.id)}
+              onToggleProblemLike={() => toggleLiked(deckSlug, current.id)}
               onRefresh={skipCard}
               onMissed={() => grade("missed")}
               onClose={() => grade("close")}
@@ -270,7 +342,7 @@ export function Drill() {
             key={`${current.id}-pre`}
             canGrade={false}
             problemLiked={liked[current.id] === true}
-            onToggleProblemLike={() => toggleLiked(current.id)}
+            onToggleProblemLike={() => toggleLiked(deckSlug, current.id)}
             onRefresh={skipCard}
             onMissed={() => grade("missed")}
             onClose={() => grade("close")}

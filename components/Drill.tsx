@@ -7,6 +7,7 @@ import { deckStats, isLearned, pickNext, applyGrade } from "../lib/scheduler";
 import { Button } from "@/components/ui/button-clean";
 import { ChangeSummary, type MetricChange } from "@/components/ui/change-summary-clean";
 import { DrillReactions } from "@/components/DrillReactions";
+import { ProtocolText } from "@/components/ProtocolText";
 import { TextArea } from "@/components/ui/text-area-clean";
 import { pullProgress } from "@/lib/progress-sync";
 import { getServerLiked, loadLiked, saveLiked, subscribeLiked, toggleLiked } from "../lib/likes";
@@ -284,7 +285,7 @@ export function Drill({ deckSlug }: DrillProps) {
           {isLearned(card) ? " · learned, light review" : ""}
         </p>
         <h2 className="text-lg leading-7 font-medium text-stone-900 whitespace-pre-wrap">
-          {current.prompt}
+          <ProtocolText text={current.prompt} />
         </h2>
 
         <form
@@ -320,10 +321,12 @@ export function Drill({ deckSlug }: DrillProps) {
             className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4 text-left outline-none"
           >
             <h3 className="text-sm font-semibold text-stone-900">Model answer</h3>
-            <p className="text-base leading-7 whitespace-pre-wrap text-stone-800">{current.answer}</p>
+            <p className="text-base leading-7 whitespace-pre-wrap text-stone-800">
+              <ProtocolText text={current.answer} />
+            </p>
             {current.pattern ? (
               <p className="border-t border-stone-200 pt-3 text-sm leading-6 text-stone-600">
-                Pattern to remember: {current.pattern}
+                Pattern to remember: <ProtocolText text={current.pattern} />
               </p>
             ) : null}
             <DrillReactions

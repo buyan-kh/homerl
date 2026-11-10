@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button-clean";
 import { ChangeSummary, type MetricChange } from "@/components/ui/change-summary-clean";
 import { DrillReactions } from "@/components/DrillReactions";
 import { TextArea } from "@/components/ui/text-area-clean";
+import { getServerLiked, loadLiked, subscribeLiked, toggleLiked } from "../lib/likes";
 import { clearMemory, getServerMemory, loadMemory, saveMemory, subscribeMemory } from "../lib/storage";
 import type { CardMemory, DeckMemory, Grade, Question } from "../lib/types";
 
 const DRILL_COLUMN =
-  "mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center";
+  "mx-auto flex w-full max-w-md flex-col items-start gap-6 text-left";
 
 function cardMetrics(card: CardMemory | undefined): MetricChange[] {
   if (!card || card.seen === 0) {
@@ -75,6 +76,7 @@ function cardMetrics(card: CardMemory | undefined): MetricChange[] {
 
 export function Drill() {
   const memory = useSyncExternalStore(subscribeMemory, loadMemory, getServerMemory);
+  const liked = useSyncExternalStore(subscribeLiked, loadLiked, getServerLiked);
   const [current, setCurrent] = useState<Question | null>(null);
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
@@ -92,6 +94,21 @@ export function Drill() {
       textRef.current?.focus();
     }
   }, [current?.id, revealed, current]);
+
+  useEffect(() => {
+    if (!current) {
+      sessionStorage.removeItem("homerl-chat-context");
+      return;
+    }
+    const lines = [
+      `Question id: ${current.id}`,
+      current.chapter ? `Chapter: ${current.chapter}` : null,
+      `Prompt: ${current.prompt}`,
+      revealed ? `Model answer: ${current.answer}` : "Answer not revealed yet.",
+      current.pattern ? `Pattern: ${current.pattern}` : null,
+    ].filter(Boolean);
+    sessionStorage.setItem("homerl-chat-context", lines.join("\n"));
+  }, [current, revealed]);
 
   function advanceToNext(nextMemory: DeckMemory) {
     setDraft("");
@@ -166,14 +183,14 @@ export function Drill() {
 
   return (
     <div className={`${DRILL_COLUMN} gap-8`}>
-      <header className="flex w-full max-w-md flex-col items-center gap-3 border-b border-border pb-6">
+      <header className="flex w-full flex-col items-start gap-3 border-b border-border pb-6">
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="mt-1 text-2xl font-semibold text-stone-900">CS 166 Test 2 drill</h1>
         <p className="text-sm leading-6 text-muted-foreground">
           Write your answer first, then reveal the model answer and grade yourself.
           Missed cards come back more often until the pattern sticks.
         </p>
-        <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground">
           <p>
             Learned {stats.learned} of {stats.total}
           </p>
@@ -195,7 +212,7 @@ export function Drill() {
         <p className="mt-1 font-mono text-xs text-stone-500">{remaining} still in rotation</p>
       </header>
 
-      <section className="flex w-full max-w-md flex-col items-center gap-4">
+      <section className="flex w-full flex-col items-start gap-4">
         <p className="font-mono text-xs text-stone-500">
           {current.chapter} · {current.id}
           {card?.seen ? ` · seen ${card.seen}` : " · new"}
@@ -205,15 +222,8 @@ export function Drill() {
           {current.prompt}
         </h2>
 
-        <ChangeSummary
-          key={`${current.id}-summary`}
-          title="This card"
-          period={current.chapter ?? current.id}
-          changes={cardMetrics(card)}
-        />
-
         <form
-          className="flex w-full flex-col items-center gap-3"
+          className="flex w-full flex-col items-start gap-3"
           onSubmit={(event) => {
             event.preventDefault();
             if (!revealed) setRevealed(true);
@@ -254,6 +264,8 @@ export function Drill() {
             <DrillReactions
               key={`${current.id}-${revealed}`}
               canGrade={revealed}
+              problemLiked={liked[current.id] === true}
+              onToggleProblemLike={() => toggleLiked(current.id)}
               onRefresh={skipCard}
               onMissed={() => grade("missed")}
               onClose={() => grade("close")}
@@ -264,12 +276,21 @@ export function Drill() {
           <DrillReactions
             key={`${current.id}-pre`}
             canGrade={false}
+            problemLiked={liked[current.id] === true}
+            onToggleProblemLike={() => toggleLiked(current.id)}
             onRefresh={skipCard}
             onMissed={() => grade("missed")}
             onClose={() => grade("close")}
             onGotIt={() => grade("got_it")}
           />
         )}
+
+        <ChangeSummary
+          key={`${current.id}-summary`}
+          title="This card"
+          period={current.chapter ?? current.id}
+          changes={cardMetrics(card)}
+        />
       </section>
     </div>
   );

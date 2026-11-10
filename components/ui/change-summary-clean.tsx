@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 
 /*
  * Change Summary (Clean) – what moved since last time, one metric per row, in a single self-contained file.
- * Clean style: no tray – one white card with hairline shadows. The heading is the first row of the card,
- * each metric sits under a 0.5px line with a small tinted trend mark and quiet gray text.
+ * Clean style: no tray – one white card with hairline shadows. Metrics fill the card first;
+ * the heading sits on a 0.5px line at the bottom with a small tinted trend mark and quiet gray text per row.
  * The styles are injected below, so no extra files are needed.
  */
 
@@ -35,19 +35,6 @@ export function ChangeSummary({ title = "What's changed", period, icon, changes,
         {css}
       </style>
       <section className={["ui-csc", className].filter(Boolean).join(" ")} aria-label={title}>
-        <header className="ui-csc__head">
-          <span className="ui-csc__title">
-            <span className="ui-csc__icon">{icon ?? <ChangesIcon />}</span>
-            <span className="ui-csc__title-text" dir="auto" title={title}>
-              {title}
-            </span>
-          </span>
-          {period && (
-            <span className="ui-csc__period" dir="auto" title={period}>
-              {period}
-            </span>
-          )}
-        </header>
         {changes.length > 0 && (
         <dl className="ui-csc__list">
           {changes.map((c, i) => {
@@ -73,6 +60,19 @@ export function ChangeSummary({ title = "What's changed", period, icon, changes,
           })}
         </dl>
         )}
+        <header className="ui-csc__head">
+          <span className="ui-csc__title">
+            <span className="ui-csc__icon">{icon ?? <ChangesIcon />}</span>
+            <span className="ui-csc__title-text" dir="auto" title={title}>
+              {title}
+            </span>
+          </span>
+          {period && (
+            <span className="ui-csc__period" dir="auto" title={period}>
+              {period}
+            </span>
+          )}
+        </header>
       </section>
     </>
   );
@@ -137,7 +137,7 @@ const css = /* css */ `
 .ui-csc *, .ui-csc *::before, .ui-csc *::after { box-sizing: border-box; }
 :where(.ui-csc) svg { display: block; flex: none; }
 
-/* Heading row: icon + title, the period on the right */
+/* Heading row: icon + title, the period on the right (footer) */
 .ui-csc__head {
   display: flex;
   align-items: center;
@@ -145,6 +145,7 @@ const css = /* css */ `
   gap: 12px;
   height: 44px;
   padding: 0 16px;
+  border-top: 0.5px solid var(--ui-csc-line);
 }
 .ui-csc__title {
   display: inline-flex;
@@ -174,6 +175,9 @@ const css = /* css */ `
   border-top: 0.5px solid var(--ui-csc-line);
   animation: ui-csc-in 520ms var(--ui-csc-ease) both;
   transition: background-color 140ms ease;
+}
+.ui-csc__row:first-child {
+  border-top: none;
 }
 .ui-csc__row:hover { background: var(--ui-csc-wash); }
 .ui-csc__label {

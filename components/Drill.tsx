@@ -8,14 +8,15 @@ import { Button } from "@/components/ui/button-clean";
 import { ChangeSummary, type MetricChange } from "@/components/ui/change-summary-clean";
 import { DrillReactions } from "@/components/DrillReactions";
 import { ProtocolText } from "@/components/ProtocolText";
+import { StudyProgressBar } from "@/components/StudyProgressBar";
 import { TextArea } from "@/components/ui/text-area-clean";
+import { CONTENT_READ } from "@/lib/content-layout";
 import { pullProgress } from "@/lib/progress-sync";
 import { getServerLiked, loadLiked, saveLiked, subscribeLiked, toggleLiked } from "../lib/likes";
 import { clearMemory, getServerMemory, loadMemory, saveMemory, subscribeMemory } from "../lib/storage";
 import type { CardMemory, DeckMemory, Grade, Question } from "../lib/types";
 
-const DRILL_COLUMN =
-  "mx-auto flex w-full max-w-md flex-col items-start gap-6 text-left";
+const DRILL_COLUMN = CONTENT_READ;
 
 function cardMetrics(card: CardMemory | undefined): MetricChange[] {
   if (!card || card.seen === 0) {
@@ -99,7 +100,6 @@ export function Drill({ deckSlug }: DrillProps) {
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [session, setSession] = useState({ asked: 0, gotIt: 0, missed: 0 });
-  const [hydrated, setHydrated] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const revealRef = useRef<HTMLDivElement>(null);
 
@@ -109,10 +109,7 @@ export function Drill({ deckSlug }: DrillProps) {
     let cancelled = false;
     (async () => {
       const remote = await pullProgress(deckSlug);
-      if (cancelled || !remote) {
-        setHydrated(true);
-        return;
-      }
+      if (cancelled || !remote) return;
       const local = loadMemory(deckSlug);
       const localLiked = loadLiked(deckSlug);
       const localEmpty = Object.keys(local).length === 0;
@@ -124,7 +121,6 @@ export function Drill({ deckSlug }: DrillProps) {
       if (Object.keys(localLiked).length === 0 && Object.keys(remote.liked).length > 0) {
         saveLiked(deckSlug, remote.liked, { skipSync: true });
       }
-      setHydrated(true);
     })();
     return () => {
       cancelled = true;
@@ -203,20 +199,14 @@ export function Drill({ deckSlug }: DrillProps) {
   }
 
   const deckTitle = deckDef.title;
-
-  if (!hydrated) {
-    return (
-      <div className={DRILL_COLUMN}>
-        <p className="font-mono text-xs text-stone-500">Loading progress…</p>
-      </div>
-    );
-  }
+  const courseHref = `/${deckDef.courseSlug}`;
+  const courseLabel = `${deckDef.courseSlug} sections`;
 
   if (!current) {
     return (
       <div className={DRILL_COLUMN}>
-        <Link href="/" className="font-mono text-xs text-stone-500 hover:text-stone-800">
-          ← All drills
+        <Link href={courseHref} className="font-mono text-xs text-stone-500 hover:text-stone-800">
+          ← {courseLabel}
         </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="text-2xl font-semibold text-stone-900">{deckTitle}</h1>
@@ -224,15 +214,16 @@ export function Drill({ deckSlug }: DrillProps) {
           {stats.learned} of {stats.total} cards are already learned in this browser.
           Write an answer, reveal the model answer, and grade yourself. Missed questions come back more often.
         </p>
+        <StudyProgressBar
+          label="Cards learned"
+          learned={stats.learned}
+          total={stats.total}
+          style={{ width: "100%", maxWidth: "24rem" }}
+        />
         <ChangeSummary
           title="Deck progress"
           period="Saved locally"
           changes={[
-            {
-              label: "Learned",
-              change: `${stats.learned} of ${stats.total} cards`,
-              tone: stats.learned > 0 ? "good" : "neutral",
-            },
             {
               label: "Started",
               change: `${stats.seen} cards touched at least once`,
@@ -249,13 +240,12 @@ export function Drill({ deckSlug }: DrillProps) {
 
   const card = memory[current.id];
   const remaining = stats.total - stats.learned;
-  const progress = stats.total === 0 ? 0 : Math.round((stats.learned / stats.total) * 100);
 
   return (
     <div className={`${DRILL_COLUMN} gap-8`}>
       <header className="flex w-full flex-col items-start gap-3 border-b border-border pb-6">
-        <Link href="/" className="font-mono text-xs text-stone-500 hover:text-stone-800">
-          ← All drills
+        <Link href={courseHref} className="font-mono text-xs text-stone-500 hover:text-stone-800">
+          ← {courseLabel}
         </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="mt-1 text-2xl font-semibold text-stone-900">{deckTitle}</h1>
@@ -267,14 +257,12 @@ export function Drill({ deckSlug }: DrillProps) {
             Reset memory
           </Button>
         </div>
-        <progress
-          className="h-2 w-full max-w-sm overflow-hidden rounded-none bg-stone-200 [&::-webkit-progress-bar]:bg-stone-200 [&::-webkit-progress-value]:bg-stone-900 [&::-moz-progress-bar]:bg-stone-900"
-          max={stats.total}
-          value={stats.learned}
-          aria-label="Cards learned"
-        >
-          {progress}%
-        </progress>
+        <StudyProgressBar
+          label="Cards learned"
+          learned={stats.learned}
+          total={stats.total}
+          style={{ width: "100%", maxWidth: "24rem" }}
+        />
         <p className="mt-1 font-mono text-xs text-stone-500">{remaining} still in rotation</p>
       </header>
 
@@ -331,7 +319,7 @@ export function Drill({ deckSlug }: DrillProps) {
             ) : null}
             <DrillReactions
               key={`${current.id}-${revealed}`}
-              canGrade={revealed}
+              canGrade
               problemLiked={liked[current.id] === true}
               onToggleProblemLike={() => toggleLiked(deckSlug, current.id)}
               onRefresh={skipCard}
@@ -340,18 +328,7 @@ export function Drill({ deckSlug }: DrillProps) {
               onGotIt={() => grade("got_it")}
             />
           </div>
-        ) : (
-          <DrillReactions
-            key={`${current.id}-pre`}
-            canGrade={false}
-            problemLiked={liked[current.id] === true}
-            onToggleProblemLike={() => toggleLiked(deckSlug, current.id)}
-            onRefresh={skipCard}
-            onMissed={() => grade("missed")}
-            onClose={() => grade("close")}
-            onGotIt={() => grade("got_it")}
-          />
-        )}
+        ) : null}
 
         <ChangeSummary
           key={`${current.id}-summary`}

@@ -1,0 +1,19 @@
+---
+description: Use Affect UI clean inputs for forms and Cursor chat loading
+globs: **/*.{tsx,ts}
+alwaysApply: true
+---
+
+# Affect UI form controls
+
+Install with shadcn registry URLs from affectui.com when missing.
+
+- **Single-line inputs**: `TextField` from `@/components/ui/text-field-clean` — not raw `<input>` or default shadcn Input.
+- **Multi-line inputs**: `TextArea` from `@/components/ui/text-area-clean` — not raw `<textarea>`.
+- **Cursor / agent “working” state**: `ThinkingLoader` from `@/components/ui/thinking-loader-clean` (e.g. chat while awaiting `/api/cursor-chat`).
+
+```bash
+pnpm dlx shadcn@latest add https://www.affectui.com/r/text-field-clean.json
+pnpm dlx shadcn@latest add https://www.affectui.com/r/text-area-clean.json
+pnpm dlx shadcn@latest add https://www.affectui.com/r/thinking-loader-clean.json
+```

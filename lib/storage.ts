@@ -3,14 +3,39 @@ import type { DeckMemory } from "./types";
 const KEY = "homerl-memory-v1";
 const EVENT = "homerl-memory";
 
+const EMPTY_MEMORY: DeckMemory = {};
+
+let cachedRaw: string | null = null;
+let cachedMemory: DeckMemory = EMPTY_MEMORY;
+
+export function getServerMemory(): DeckMemory {
+  return EMPTY_MEMORY;
+}
+
 export function loadMemory(): DeckMemory {
-  if (typeof window === "undefined") return {};
+  if (typeof window === "undefined") return EMPTY_MEMORY;
+
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as DeckMemory) : {};
+    raw = localStorage.getItem(KEY);
   } catch {
-    return {};
+    return EMPTY_MEMORY;
   }
+
+  if (raw === cachedRaw) return cachedMemory;
+
+  cachedRaw = raw;
+  if (!raw) {
+    cachedMemory = EMPTY_MEMORY;
+    return cachedMemory;
+  }
+
+  try {
+    cachedMemory = JSON.parse(raw) as DeckMemory;
+  } catch {
+    cachedMemory = EMPTY_MEMORY;
+  }
+  return cachedMemory;
 }
 
 export function saveMemory(memory: DeckMemory) {

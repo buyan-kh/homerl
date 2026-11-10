@@ -3,11 +3,78 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CS166_TEST2 } from "../data/cs166-test2";
 import { deckStats, isLearned, pickNext, applyGrade } from "../lib/scheduler";
-import { clearMemory, loadMemory, saveMemory, subscribeMemory } from "../lib/storage";
-import type { DeckMemory, Grade, Question } from "../lib/types";
+import { Button } from "@/components/ui/button-clean";
+import { ChangeSummary, type MetricChange } from "@/components/ui/change-summary-clean";
+import { DrillReactions } from "@/components/DrillReactions";
+import { TextArea } from "@/components/ui/text-area-clean";
+import { clearMemory, getServerMemory, loadMemory, saveMemory, subscribeMemory } from "../lib/storage";
+import type { CardMemory, DeckMemory, Grade, Question } from "../lib/types";
+
+const DRILL_COLUMN =
+  "mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center";
+
+function cardMetrics(card: CardMemory | undefined): MetricChange[] {
+  if (!card || card.seen === 0) {
+    return [
+      { label: "Status", change: "First time on this card", tone: "neutral" },
+      { label: "Deck priority", change: "Weighted higher until you grade it", tone: "neutral" },
+    ];
+  }
+
+  const metrics: MetricChange[] = [
+    {
+      label: "Times seen",
+      change: `${card.seen} review${card.seen === 1 ? "" : "s"}`,
+      tone: "neutral",
+    },
+  ];
+
+  if (card.missed > 0) {
+    metrics.push({
+      label: "Misses",
+      change: `${card.missed} logged`,
+      tone: "bad",
+      direction: "down",
+    });
+  }
+
+  metrics.push({
+    label: "Streak",
+    change:
+      card.streak > 0 ? `${card.streak} got-it in a row` : "Reset — build it back up",
+    tone: card.streak >= 3 ? "good" : card.streak > 0 ? "neutral" : "bad",
+    direction: card.streak > 0 ? "up" : "down",
+  });
+
+  if (isLearned(card)) {
+    metrics.push({ label: "Learned", change: "In light review", tone: "good" });
+  } else {
+    metrics.push({
+      label: "Review weight",
+      change: `${card.ease.toFixed(1)}× — ${card.ease > 2 ? "comes back often" : card.ease > 1 ? "normal rotation" : "fading out"}`,
+      tone: card.ease > 2 ? "bad" : card.ease <= 0.35 ? "good" : "neutral",
+      direction: card.ease > 1 ? "up" : "down",
+    });
+  }
+
+  if (card.lastGrade) {
+    const labels: Record<Grade, string> = {
+      missed: "Missed it",
+      close: "Close",
+      got_it: "Got it",
+    };
+    metrics.push({
+      label: "Last grade",
+      change: labels[card.lastGrade],
+      tone: card.lastGrade === "got_it" ? "good" : card.lastGrade === "missed" ? "bad" : "neutral",
+    });
+  }
+
+  return metrics;
+}
 
 export function Drill() {
-  const memory = useSyncExternalStore<DeckMemory>(subscribeMemory, loadMemory, (): DeckMemory => ({}));
+  const memory = useSyncExternalStore(subscribeMemory, loadMemory, getServerMemory);
   const [current, setCurrent] = useState<Question | null>(null);
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
@@ -26,6 +93,12 @@ export function Drill() {
     }
   }, [current?.id, revealed, current]);
 
+  function advanceToNext(nextMemory: DeckMemory) {
+    setDraft("");
+    setRevealed(false);
+    setCurrent(pickNext(CS166_TEST2, nextMemory, current?.id));
+  }
+
   function grade(value: Grade) {
     if (!current) return;
     const nextMemory: DeckMemory = {
@@ -38,9 +111,12 @@ export function Drill() {
       gotIt: s.gotIt + (value === "got_it" ? 1 : 0),
       missed: s.missed + (value === "missed" ? 1 : 0),
     }));
-    setDraft("");
-    setRevealed(false);
-    setCurrent(pickNext(CS166_TEST2, nextMemory, current.id));
+    advanceToNext(nextMemory);
+  }
+
+  function skipCard() {
+    if (!current) return;
+    advanceToNext(memory);
   }
 
   function resetDeck() {
@@ -54,20 +130,32 @@ export function Drill() {
 
   if (!current) {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <div className={DRILL_COLUMN}>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="text-2xl font-semibold text-stone-900">CS 166 Test 2 drill</h1>
-        <p className="max-w-2xl text-sm leading-6 text-stone-600">
+        <p className="text-sm leading-6 text-muted-foreground">
           {stats.learned} of {stats.total} cards are already learned in this browser.
           Write an answer, reveal the model answer, and grade yourself. Missed questions come back more often.
         </p>
-        <button
-          type="button"
-          onClick={() => setCurrent(pickNext(CS166_TEST2, memory))}
-          className="w-fit bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2"
-        >
+        <ChangeSummary
+          title="Deck progress"
+          period="This browser"
+          changes={[
+            {
+              label: "Learned",
+              change: `${stats.learned} of ${stats.total} cards`,
+              tone: stats.learned > 0 ? "good" : "neutral",
+            },
+            {
+              label: "Started",
+              change: `${stats.seen} cards touched at least once`,
+              tone: "neutral",
+            },
+          ]}
+        />
+        <Button type="button" onClick={() => setCurrent(pickNext(CS166_TEST2, memory))}>
           Start drilling
-        </button>
+        </Button>
       </div>
     );
   }
@@ -77,29 +165,27 @@ export function Drill() {
   const progress = stats.total === 0 ? 0 : Math.round((stats.learned / stats.total) * 100);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-      <header className="border-b border-stone-300 pb-4">
+    <div className={`${DRILL_COLUMN} gap-8`}>
+      <header className="flex w-full max-w-md flex-col items-center gap-3 border-b border-border pb-6">
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="mt-1 text-2xl font-semibold text-stone-900">CS 166 Test 2 drill</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+        <p className="text-sm leading-6 text-muted-foreground">
           Write your answer first, then reveal the model answer and grade yourself.
           Missed cards come back more often until the pattern sticks.
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-stone-700">
+        <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
           <p>
             Learned {stats.learned} of {stats.total}
           </p>
-          <p>This session: {session.gotIt} solid, {session.missed} missed, {session.asked} reviewed</p>
-          <button
-            type="button"
-            onClick={resetDeck}
-            className="ml-auto text-stone-600 underline decoration-stone-400 underline-offset-2 hover:text-stone-900"
-          >
+          <p>
+            This session: {session.gotIt} solid, {session.missed} missed, {session.asked} reviewed
+          </p>
+          <Button type="button" variant="ghost" onClick={resetDeck}>
             Reset memory
-          </button>
+          </Button>
         </div>
         <progress
-          className="mt-3 h-2 w-full overflow-hidden rounded-none bg-stone-200 [&::-webkit-progress-bar]:bg-stone-200 [&::-webkit-progress-value]:bg-stone-900 [&::-moz-progress-bar]:bg-stone-900"
+          className="h-2 w-full max-w-sm overflow-hidden rounded-none bg-stone-200 [&::-webkit-progress-bar]:bg-stone-200 [&::-webkit-progress-value]:bg-stone-900 [&::-moz-progress-bar]:bg-stone-900"
           max={stats.total}
           value={stats.learned}
           aria-label="Cards learned"
@@ -109,7 +195,7 @@ export function Drill() {
         <p className="mt-1 font-mono text-xs text-stone-500">{remaining} still in rotation</p>
       </header>
 
-      <section className="flex flex-col gap-4">
+      <section className="flex w-full max-w-md flex-col items-center gap-4">
         <p className="font-mono text-xs text-stone-500">
           {current.chapter} · {current.id}
           {card?.seen ? ` · seen ${card.seen}` : " · new"}
@@ -119,40 +205,44 @@ export function Drill() {
           {current.prompt}
         </h2>
 
+        <ChangeSummary
+          key={`${current.id}-summary`}
+          title="This card"
+          period={current.chapter ?? current.id}
+          changes={cardMetrics(card)}
+        />
+
         <form
-          className="flex flex-col gap-3"
+          className="flex w-full flex-col items-center gap-3"
           onSubmit={(event) => {
             event.preventDefault();
             if (!revealed) setRevealed(true);
           }}
         >
-          <label htmlFor="answer" className="text-sm font-medium text-stone-800">
-            Your answer
-          </label>
-          <textarea
+          <TextArea
             id="answer"
             ref={textRef}
+            label="Your answer"
+            hint="Write from memory first. ⌘Enter or Ctrl+Enter reveals the model answer."
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            rows={6}
+            minRows={6}
+            maxRows={12}
+            expandable
             spellCheck
-            className="w-full resize-y rounded-none border border-stone-400 bg-white px-3 py-2 font-sans text-base leading-6 text-stone-900 outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-900"
+            disabled={revealed}
+            onSubmitShortcut={() => {
+              if (!revealed) setRevealed(true);
+            }}
           />
-          {!revealed ? (
-            <button
-              type="submit"
-              className="w-fit bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2"
-            >
-              Reveal answer
-            </button>
-          ) : null}
+          {!revealed ? <Button type="submit">Reveal answer</Button> : null}
         </form>
 
         {revealed ? (
           <div
             ref={revealRef}
             tabIndex={-1}
-            className="flex flex-col gap-3 border border-stone-300 bg-stone-50 p-4 outline-none"
+            className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4 text-left outline-none"
           >
             <h3 className="text-sm font-semibold text-stone-900">Model answer</h3>
             <p className="text-base leading-7 whitespace-pre-wrap text-stone-800">{current.answer}</p>
@@ -161,32 +251,25 @@ export function Drill() {
                 Pattern to remember: {current.pattern}
               </p>
             ) : null}
-            <p className="text-sm font-medium text-stone-800">How did you do?</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => grade("missed")}
-                className="border border-red-800 px-3 py-2 text-sm text-red-900 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-800"
-              >
-                Missed it
-              </button>
-              <button
-                type="button"
-                onClick={() => grade("close")}
-                className="border border-stone-700 px-3 py-2 text-sm text-stone-800 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-800"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => grade("got_it")}
-                className="bg-stone-900 px-3 py-2 text-sm font-medium text-white hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2"
-              >
-                Got it
-              </button>
-            </div>
+            <DrillReactions
+              key={`${current.id}-${revealed}`}
+              canGrade={revealed}
+              onRefresh={skipCard}
+              onMissed={() => grade("missed")}
+              onClose={() => grade("close")}
+              onGotIt={() => grade("got_it")}
+            />
           </div>
-        ) : null}
+        ) : (
+          <DrillReactions
+            key={`${current.id}-pre`}
+            canGrade={false}
+            onRefresh={skipCard}
+            onMissed={() => grade("missed")}
+            onClose={() => grade("close")}
+            onGotIt={() => grade("got_it")}
+          />
+        )}
       </section>
     </div>
   );

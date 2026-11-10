@@ -15,7 +15,7 @@ export async function pullProgress(deckSlug: string): Promise<RemoteProgress | n
   const clientId = getClientId();
   if (!clientId) return null;
   try {
-    const res = await fetch(`/api/progress/${encodeURIComponent(deckSlug)}`, {
+    const res = await fetch(`/api/progress?deck=${encodeURIComponent(deckSlug)}`, {
       headers: { "X-Homerl-Client-Id": clientId },
     });
     if (res.status === 404) return null;
@@ -44,7 +44,7 @@ export async function pushProgress(deckSlug: string): Promise<void> {
   const memory = loadMemory(deckSlug);
   const liked = loadLiked(deckSlug);
   try {
-    await fetch(`/api/progress/${encodeURIComponent(deckSlug)}`, {
+    await fetch(`/api/progress?deck=${encodeURIComponent(deckSlug)}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

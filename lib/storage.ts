@@ -1,3 +1,4 @@
+import { getDeck } from "./decks";
 import { scheduleProgressPush } from "./progress-sync";
 import type { DeckMemory } from "./types";
 
@@ -19,10 +20,33 @@ function eventName(deckSlug: string) {
 
 function migrateLegacy(deckSlug: string) {
   if (typeof window === "undefined") return;
-  if (deckSlug !== "cs166") return;
   if (localStorage.getItem(storageKey(deckSlug))) return;
-  const legacy = localStorage.getItem(LEGACY_KEY);
-  if (legacy) localStorage.setItem(storageKey(deckSlug), legacy);
+
+  const parent = deckSlug.includes("/") ? deckSlug.split("/")[0] : deckSlug;
+  if (parent === "cs166" && !localStorage.getItem(storageKey("cs166"))) {
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) localStorage.setItem(storageKey("cs166"), legacy);
+  }
+
+  if (!deckSlug.includes("/")) return;
+  const parentRaw = localStorage.getItem(storageKey(parent));
+  if (!parentRaw) return;
+
+  try {
+    const all = JSON.parse(parentRaw) as DeckMemory;
+    const deck = getDeck(deckSlug);
+    if (!deck) return;
+    const allowed = new Set(deck.questions.map((q) => q.id));
+    const sliced: DeckMemory = {};
+    for (const [id, value] of Object.entries(all)) {
+      if (allowed.has(id)) sliced[id] = value;
+    }
+    if (Object.keys(sliced).length > 0) {
+      localStorage.setItem(storageKey(deckSlug), JSON.stringify(sliced));
+    }
+  } catch {
+    // leave the section empty if the parent dump cannot be split
+  }
 }
 
 export function getServerMemory(_deckSlug: string): DeckMemory {

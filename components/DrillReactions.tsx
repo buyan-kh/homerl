@@ -8,7 +8,6 @@ type DrillReactionsProps = {
   problemLiked: boolean;
   savedComment?: string;
   onToggleProblemLike: () => void;
-  onRefresh: () => void;
   onMissed: () => void;
   onCommentSave: (note: string) => void;
   onGotIt: () => void;
@@ -19,7 +18,6 @@ export function DrillReactions({
   problemLiked,
   savedComment = "",
   onToggleProblemLike,
-  onRefresh,
   onMissed,
   onCommentSave,
   onGotIt,
@@ -63,16 +61,6 @@ export function DrillReactions({
         <button
           type="button"
           className="ui-drill-rbc__btn"
-          data-tone="neutral"
-          aria-label="Refresh — skip to another question"
-          title="New question"
-          onClick={onRefresh}
-        >
-          <IconRefresh />
-        </button>
-        <button
-          type="button"
-          className="ui-drill-rbc__btn"
           data-tone={commentSaved ? "good" : commentOpen ? "open" : "neutral"}
           aria-pressed={commentOpen}
           aria-label="Comment — note what you almost had"
@@ -110,9 +98,6 @@ export function DrillReactions({
           <IconCheck />
         </button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Refresh new card · Comment saves a note · Heart saves a favorite · Check got it
-      </p>
       {canGrade ? (
         <button
           type="button"
@@ -155,20 +140,9 @@ export function DrillReactions({
 function MotionDirections() {
   return (
     <p className="sr-only">
-      Refresh loads another question without grading. Heart likes this problem and turns red; it does
-      not change your grade. Comment toggles a note field; saving stores your note and turns the icon green.
+      Heart likes this problem and turns red; it does not change your grade. Comment toggles a note field;
+      saving stores your note and turns the icon green.
     </p>
-  );
-}
-
-function IconRefresh() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M16.5 3.5 19 6l-2.5 2.5" />
-      <path d="M19 6H8a4 4 0 0 0-4 4v1" />
-      <path d="M7.5 20.5 5 18l2.5-2.5" />
-      <path d="M5 18h11a4 4 0 0 0 4-4v-1" />
-    </svg>
   );
 }
 

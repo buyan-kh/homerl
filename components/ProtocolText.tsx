@@ -10,11 +10,11 @@ type ProtocolTextProps = {
   className?: string;
 };
 
-function renderLatex(latex: string) {
+function renderLatex(latex: string, displayMode: boolean) {
   try {
     return katex.renderToString(latex, {
       throwOnError: false,
-      displayMode: false,
+      displayMode,
       strict: "ignore",
     });
   } catch {
@@ -27,18 +27,29 @@ export function ProtocolText({ text, className }: ProtocolTextProps) {
 
   return (
     <span className={className}>
-      {segments.map((seg, i) =>
-        seg.kind === "text" ? (
-          <span key={i}>{seg.value}</span>
-        ) : (
+      {segments.map((seg, i) => {
+        if (seg.kind === "text") {
+          return <span key={i}>{seg.value}</span>;
+        }
+        if (seg.kind === "display") {
+          return (
+            <span
+              key={i}
+              className="protocol-math my-4 block overflow-x-auto text-left [&_.katex-display]:mx-0 [&_.katex-display]:my-0 [&_.katex]:text-[1.05em]"
+              dangerouslySetInnerHTML={{ __html: renderLatex(seg.latex, true) }}
+              aria-label={seg.latex}
+            />
+          );
+        }
+        return (
           <span
             key={i}
-            className="protocol-math mx-0.5 align-baseline [&_.katex]:text-[1.05em]"
-            dangerouslySetInnerHTML={{ __html: renderLatex(seg.latex) }}
+            className="protocol-math mx-0.5 inline-block align-baseline [&_.katex]:text-[1.05em]"
+            dangerouslySetInnerHTML={{ __html: renderLatex(seg.latex, false) }}
             aria-label={seg.latex}
           />
-        ),
-      )}
+        );
+      })}
     </span>
   );
 }

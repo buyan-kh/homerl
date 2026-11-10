@@ -28,7 +28,7 @@ export type ChangeSummaryProps = {
   className?: string;
 };
 
-export function ChangeSummary({ title = "What's changed", period, icon, changes, className }: ChangeSummaryProps) {
+export function ChangeSummary({ title = "What's changed", changes, className }: ChangeSummaryProps) {
   return (
     <>
       <style href="ui-change-summary-clean" precedence="default">
@@ -60,31 +60,12 @@ export function ChangeSummary({ title = "What's changed", period, icon, changes,
           })}
         </dl>
         )}
-        <header className="ui-csc__head">
-          <span className="ui-csc__title">
-            <span className="ui-csc__icon">{icon ?? <ChangesIcon />}</span>
-            <span className="ui-csc__title-text" dir="auto" title={title}>
-              {title}
-            </span>
-          </span>
-          {period && (
-            <span className="ui-csc__period" dir="auto" title={period}>
-              {period}
-            </span>
-          )}
-        </header>
       </section>
     </>
   );
 }
 
 /* ---------- Icons: thin lines, round caps ---------- */
-
-const ChangesIcon = () => (
-  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" aria-hidden="true">
-    <path d="M2.5 4h4M2.5 8h8M6.5 12h7M9.5 4h1" />
-  </svg>
-);
 
 const ArrowIcon = ({ down }: { down?: boolean }) => (
   <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -139,10 +120,10 @@ const css = /* css */ `
 
 /* Heading row: icon + title, the period on the right (footer) */
 .ui-csc__head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   height: 44px;
   padding: 0 16px;
   border-top: 0.5px solid var(--ui-csc-line);
@@ -161,7 +142,8 @@ const css = /* css */ `
 .ui-csc__icon > :is(img, svg) { width: 16px; height: 16px; object-fit: contain; }
 .ui-csc__title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The period shortens before it pushes the title out */
-.ui-csc__period { flex: 0 1 auto; min-width: 0; max-width: 50%; overflow: hidden; font-size: 12px; line-height: 16px; white-space: nowrap; text-overflow: ellipsis; color: var(--ui-csc-muted); }
+/* Same column as the metric value, plus the trend icon and its gap, so the caption lines up with the words */
+.ui-csc__period { min-width: 0; margin-inline-start: 20px; overflow: hidden; font-size: 12px; line-height: 16px; white-space: nowrap; text-overflow: ellipsis; color: var(--ui-csc-muted); }
 
 /* One row per metric, each under a hairline */
 .ui-csc__list { margin: 0; }

@@ -4,6 +4,12 @@ globs: **/*.{tsx,ts}
 alwaysApply: true
 ---
 
+# UI components (Affect + shadcn)
+
+Prefer **Affect UI** blocks from affectui.com (`pnpm dlx shadcn@latest add https://www.affectui.com/r/<slug>.json`) for product patterns (profile menu, reactions, loaders, clean inputs).
+
+For primitives missing from Affect (sidebar, dialog, alert-dialog, scroll-area, sheet), use **`pnpm dlx shadcn@latest add <name>`** and theme tokens from `app/globals.css` — not `prompt()` / `confirm()`.
+
 # Affect UI form controls
 
 Install with shadcn registry URLs from affectui.com when missing.

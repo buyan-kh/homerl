@@ -37,7 +37,7 @@ export function ModelChat() {
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open]);
+  }, [messages, open, busy]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -91,6 +91,7 @@ export function ModelChat() {
       },
     ]);
     setError(null);
+    setInput("");
   }
 
   return (

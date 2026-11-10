@@ -5,233 +5,278 @@ export const CS166_TEST2: Question[] = [
     id: "6-1a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Timestamps and nonces both prevent replay attacks. What is the most significant advantage of a timestamp over a nonce?",
-    answer: "A timestamp usually needs fewer messages, so the protocol is more efficient.",
-    pattern: "Timestamp: fewer messages. Nonce: no clock issues.",
+    answer: "Reduces the number of messages.",
+    pattern: "Timestamp: fewer messages. Nonce: time is not a security-critical parameter.",
   },
   {
     id: "6-1b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Timestamps and nonces both prevent replay attacks. What is the most significant advantage of a nonce over a timestamp?",
-    answer:
-      "With a nonce, time is not a security-critical parameter, so clock skew and synchronized clocks are not an issue.",
-    pattern: "Timestamp: fewer messages. Nonce: no clock issues.",
+    answer: "When using a nonce, time is not a security critical parameter.",
+    pattern: "Timestamp: fewer messages. Nonce: time is not a security-critical parameter.",
   },
   {
     id: "6-2a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: 'What is a "salt," and how is it used when passwords are stored in a file?',
     answer:
-      "A salt is a non-secret value that is appended (or prepended) to the password before the password is hashed. The salt is stored alongside the hash.",
-    pattern: "Salt is public, mixed in before hashing, stored with the hash.",
+      "A salt is a randomly-generated string of bits that is hashed with a password, and then is stored along with the password for verification.",
+    pattern: "Salt is random bits, hashed with the password, and stored with that password entry.",
   },
   {
     id: "6-2b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "Why is a salt useful when hashing passwords?",
-    answer:
-      "It stops Trudy from using one precomputed dictionary or rainbow table against every user. Each salt needs its own hashes, so a dictionary attack gets much more expensive.",
-    pattern: "Salt defeats precomputed hashes, not an exhaustive search of one password.",
+    answer: "A salt makes a forward search attack more difficult.",
+    pattern: "The official wording is forward search, not just \"dictionary\" or \"rainbow table.\"",
   },
   {
     id: "6-3a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Methods used to prevent covert channels are inherently weak. In a high-security environment, is it better to use such weak methods or to do nothing at all? Explain.",
     answer:
-      "Use the weak methods. They still raise the effort needed to leak information, which matters in a high-security setting.",
+      "It is better to use such techniques, since it is not much of a burden to implement, and it makes Trudy's job more difficult.",
     pattern:
-      "Weak covert-channel and inference controls: still use them. Weak encryption: usually do nothing.",
+      "Weak covert-channel and inference controls: still use them, low burden, harder for Trudy. Weak encryption: generally do not use it.",
   },
   {
     id: "6-3b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Methods used for inference control are inherently weak. Is it better to use such weak methods or to do nothing at all? Explain.",
     answer:
-      "Use the weak methods. They still make inference harder, even if they cannot block it completely.",
+      "It is better to use such techniques, as in part (a), it makes Trudy's job more difficult, while imposing a minimal burden on the good guys.",
     pattern:
-      "Weak covert-channel and inference controls: still use them. Weak encryption: usually do nothing.",
+      "Weak covert-channel and inference controls: still use them, low burden, harder for Trudy. Weak encryption: generally do not use it.",
   },
   {
     id: "6-3c",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Suppose that the only cryptosystem you have access to is known to be weak. Is it better to use this weak system to encrypt your data or to do nothing at all? Explain.",
     answer:
-      "Generally do nothing. Weak encryption can create a false sense of security, and an attacker who breaks it gets the plaintext.",
+      "It would generally be better not to encrypt using a weak cipher, as encryption implies that the data is important, so it is more likely to be filtered out for further investigation.",
     pattern:
-      "Weak covert-channel and inference controls: still use them. Weak encryption: usually do nothing.",
+      "Do not use a weak cipher. The official reason is that ciphertext flags the data as important and makes it more likely to be pulled for further investigation.",
   },
   {
     id: "6-4a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "In terms of Lampson's access control matrix, what are capabilities (C-lists)?",
-    answer:
-      "Capabilities are the rows of the matrix: for each subject, the list of objects and the rights that subject has to them.",
+    answer: "Rows",
     pattern: "Capabilities = rows (by subject). ACLs = columns (by object).",
   },
   {
     id: "6-4b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "In terms of Lampson's access control matrix, what are access control lists (ACLs)?",
-    answer:
-      "ACLs are the columns of the matrix: for each object, the list of subjects and the rights those subjects have to that object.",
+    answer: "Columns",
     pattern: "Capabilities = rows (by subject). ACLs = columns (by object).",
   },
   {
     id: "6-5a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "In biometrics, what are the two most significant differences between the authentication problem and the identification problem?",
     answer:
-      "Authentication is a one-to-one comparison and the subject is usually cooperative. Identification is one-to-many (many comparisons) and subjects are often uncooperative, which can mean poor enrollment data.",
-    pattern: "Auth: 1-to-1 and cooperative. ID: 1-to-many and often uncooperative.",
+      "Authentication is a 1-to-1 comparison, and we have cooperative subjects.",
+    pattern:
+      "The official key states the authentication side: 1-to-1 and cooperative subjects. Identification is the contrast, a 1-to-many comparison, often with less cooperative subjects.",
   },
   {
     id: "6-5b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "Which is easier, biometric authentication or identification, and why?",
     answer:
-      "Authentication is easier because it is one comparison, so there is less chance of a false match. Identification does many comparisons, so the error chance grows.",
-    pattern: "More comparisons means more chances to be wrong, so identification is harder.",
+      "Authentication is inherently easier than identification, because we have a 1-to-1 comparison instead of a 1-to-many comparison, and each comparison has a chance of an error.",
+    pattern: "More comparisons means more chances of an error, so identification is harder.",
   },
   {
     id: "6-6a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Passwords use 64 possible characters. They are truncated or padded with A to 16 characters, then split into X0 (first 8) and X1 (last 8). Store Y0 = h(X0) and Y1 = h(X1). What is the expected work for an exhaustive search to recover one specific password?",
-    answer:
-      "Each half has 64^8 = 2^48 possibilities. Expected work is (64^8 + 64^8) / 2 = 64^8 = 2^48.",
-    pattern: "Split hashes: work is about half the sum of the two search spaces, often dominated by the larger half.",
+    answer: "(64^8 + 64^8) / 2 = 2^{48}",
+    pattern: "Expected work is half the sum of the two 64^8 search spaces, which is 64^8 = 2^{48}.",
   },
   {
     id: "6-6b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Under that same 8-and-8 split hashing scheme, why would a 10-character password likely be less secure than an 8-character password?",
     answer:
-      "A 10-character password puts two real characters plus six A's into X1, so X1 can be cracked with only 64^2 work. That reveals the last two characters and then a dictionary attack on the first eight gets much easier. An 8-character password makes X1 all padding, so it leaks no password characters.",
-    pattern: "Padding in the second half can make part of the password cheap to recover.",
+      "Trudy can attack the 2nd half first, and if it is a 10-character password, Trudy will easily determine the last 2 characters, and then she can use that information to make smarter guesses for the first 8 characters.",
+    pattern: "The padded second half of a 10-character password is only 2 unknown characters, so it falls first and helps attack X0.",
   },
   {
     id: "6-7a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "At which layer of the protocol stack does a packet filter firewall operate?",
-    answer: "The network layer.",
+    answer: "Network",
     pattern: "Packet filter: network. Stateful packet filter: transport. Application proxy: application.",
   },
   {
     id: "6-7b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "At which layer of the protocol stack does a stateful packet filter operate?",
-    answer: "The transport layer.",
+    answer: "Transport",
     pattern: "Packet filter: network. Stateful packet filter: transport. Application proxy: application.",
   },
   {
     id: "6-7c",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt: "At which layer of the protocol stack does an application proxy firewall operate?",
-    answer: "The application layer.",
+    answer: "Application",
     pattern: "Packet filter: network. Stateful packet filter: transport. Application proxy: application.",
   },
   {
     id: "6-8a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
-      "Public-key protocol, do not consider replay only within the clock skew. Message 1: {K, [T]Alice}Bob. Is it practical for Bob as a multi-user server? Is Alice authenticated? Is Bob authenticated? Is session key K secure? If not, give the attack.",
+      "2-message public-key protocol. Message 2 is always [T+1]Bob. Do not consider replay only within the clock skew. Message 1: {K, [T]Alice}Bob. Practical for Bob as a multi-user server? Alice authenticated? Bob authenticated? Session key K secure? If a later column is no, illustrate the attack.",
     answer:
-      "Practical: yes, Bob decrypts with his private key and does not need to know who is talking first. Alice: yes, her signature is on T and only Bob can open the ciphertext. Bob: no, anyone can encrypt to Bob, and this message does not prove Bob took part. K: yes for confidentiality to Bob, but Alice cannot be sure she is talking to Bob. Trudy can impersonate Bob toward Alice because Alice never gets a response that only Bob could make.",
+      "Practical: no. Alice authenticated: yes. Bob authenticated: yes. Session key secure: yes.\nThe solutions key marks practical as no and does not draw an attack, because you ignore the first column when illustrating attacks. The usual reason it is not practical is that Alice's name is not in the message, so Bob would have to try many clients' public keys to check the signature [T]Alice.",
     pattern:
-      "Ask: can the server choose the right key? Who is bound by a signature or shared key? Can Trudy insert or swap a key?",
+      "Message 2 [T+1]Bob authenticates Bob. (a) is not practical because Alice is not identified in the clear or after a single decryption.",
   },
   {
     id: "6-8b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
-      "Public-key protocol, ignore replay only within clock skew. Message 1: {Alice, K, [T]Alice}Bob. Practical? Alice authenticated? Bob authenticated? K secure? If not, give the attack.",
-    answer:
-      "Practical: yes. Alice: yes, the signed timestamp is inside the ciphertext, and her name is included. Bob: no, anyone can encrypt a message to Bob. K is confidential to Bob, but Alice has no proof she reached Bob. Same attack idea as 8a: Trudy can stand in for Bob from Alice's point of view.",
+      "2-message public-key protocol. Message 2 is always [T+1]Bob. Do not consider replay only within the clock skew. Message 1: {Alice, K, [T]Alice}Bob. Practical? Alice authenticated? Bob authenticated? Session key K secure?",
+    answer: "Practical: yes. Alice authenticated: yes. Bob authenticated: yes. Session key secure: yes.",
     pattern:
-      "Ask: can the server choose the right key? Who is bound by a signature or shared key? Can Trudy insert or swap a key?",
+      "Bob decrypts with his private key, sees Alice's name, then checks her signature. Message 2 [T+1]Bob authenticates Bob.",
   },
   {
     id: "6-8c",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
-      "Public-key protocol, ignore replay only within clock skew. Message 1: Alice, {K, T}Bob. Practical? Alice authenticated? Bob authenticated? K secure? If not, give the attack.",
+      "2-message public-key protocol. Message 2 is always [T+1]Bob. Do not consider replay only within the clock skew. Message 1: Alice, {K, T}Bob. Practical? Alice authenticated? Bob authenticated? Session key K secure? If a later column is no, illustrate the attack.",
     answer:
-      "Practical: yes, Alice's name is in the clear. Alice: no, there is no signature, so Trudy can send Alice, {K, T}Bob and pretend to be Alice. Bob: no. K: no, because Trudy can choose K and impersonate Alice.",
-    pattern: "If there is no signature or shared-key proof, anyone can spoof Alice.",
+      "Practical: yes. Alice authenticated: no. Bob authenticated: yes. Session key secure: yes.\nAlice is not authenticated, since Trudy can simply pretend to be Alice. There is a separate card for the official attack diagram.",
+    pattern:
+      "No signature on this message, so Trudy can send Alice, {K, T}Bob. Bob still replies [T+1]Bob, so Bob is authenticated and K still reaches only Bob.",
+  },
+  {
+    id: "6-8c-attack",
+    deck: "CS 166 Test 2",
+    chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
+    prompt:
+      "Illustrate a successful attack by Trudy for this public-key protocol. Message 1: Alice, {K, T}Bob. Message 2: [T+1]Bob. Ignore the practicality column. The solutions key says Alice is not authenticated.",
+    answer:
+      "Alice is not authenticated, since Trudy can simply pretend to be Alice.\nTrudy sends Alice, {K, T}Bob to Bob, and Bob replies [T+1]Bob to Trudy.",
+    answerImage: "/cs166/review/q8c-attack.png",
+    pattern: "No signature, so Trudy can spoof Alice's name in the clear and pick K herself.",
   },
   {
     id: "6-9a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
-      "Shared key KAB. Message 1: E(Alice, K, RA, KAB). Message 2: RA, E(RB, KAB). Practical for Bob as a multi-user server? Alice authenticated? Bob authenticated? K secure? If not, give the attack.",
+      "3-message protocol with shared key KAB. Message 3 is RB. Message 1: E(Alice, K, RA, KAB). Message 2: RA, E(RB, KAB). Practical for Bob as a multi-user server? Alice authenticated? Bob authenticated? Session key K secure?",
     answer:
-      "Practical: no. Alice's identity is inside the ciphertext, so Bob cannot tell which user's key to use to decrypt it. Skip the other columns once it is not practical, or note that if Bob already knew it was Alice, both sides have KAB so authentication and K would work, but a server with many users cannot get that far.",
-    pattern: "If the identity needed to choose KAB is encrypted, the server cannot start the lookup.",
+      "Practical: no. Alice authenticated: yes. Bob authenticated: yes. Session key secure: yes.\nThe solutions key marks practical as no and does not draw an attack for this part. The usual reason is that Alice's identity is inside the ciphertext, so Bob cannot tell which shared key KAB to use.",
+    pattern: "If the name needed to choose KAB is encrypted, a multi-user server cannot start the lookup.",
   },
   {
     id: "6-9b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
-      "Shared key KAB. Message 1: Alice, E(Alice, K, KAB), E(Alice, RA, KAB). Message 2: RA, E(Bob, RB, KAB). Practical? Alice authenticated? Bob authenticated? K secure? If not, give the attack.",
+      "3-message protocol with shared key KAB. Message 3 is RB. Message 1: Alice, E(Alice, K, KAB), E(Alice, RA, KAB). Message 2: RA, E(Bob, RB, KAB). Practical? Alice authenticated? Bob authenticated? Session key K secure? If a later column is no, illustrate the attack.",
     answer:
-      "Practical: yes, Alice's name is in the clear. Alice and Bob can be authenticated because each encrypts under KAB. K is not secure: K and RA are in separate ciphertexts, so Trudy can cut-and-paste. She can replace E(Alice, K, KAB) with a ciphertext from another run (or her own) and keep E(Alice, RA, KAB). Bob will still return the matching RA, and the session key Alice and Bob end up using may be one Trudy chose or already knows.",
-    pattern: "Separate encryptions of K and the nonce invite a cut-and-paste attack.",
+      "Practical: yes. Alice authenticated: yes. Bob authenticated: yes. Session key secure: no.\nTrudy intercepts message 1 and replays it, but swaps the two encrypted parts to obtain Alice and Bob's session key. There is a separate card for the official attack diagram.",
+    pattern:
+      "The two pieces are encrypted separately, so Trudy can swap them and Bob will return K in the clear, thinking it is RA.",
+  },
+  {
+    id: "6-9b-attack",
+    deck: "CS 166 Test 2",
+    chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
+    prompt:
+      "Illustrate a successful attack by Trudy for this shared-key protocol. Message 1: Alice, E(Alice, K, KAB), E(Alice, RA, KAB). Message 2: RA, E(Bob, RB, KAB). Message 3 is RB. Ignore the practicality column. The solutions key says the session key is not secure.",
+    answer:
+      "Trudy intercepts message 1 and replays it, but swaps the two encrypted parts to obtain Alice and Bob's session key.\nShe sends Alice, E(Alice, RA, KAB), E(Alice, K, KAB) to Bob. Bob replies K, E(Bob, RB, KAB), putting the session key in the clear where RA should have been.",
+    answerImage: "/cs166/review/q9b-attack.png",
+    pattern: "Swap the two ciphertexts so Bob treats K as the nonce RA and sends K in the clear.",
   },
   {
     id: "6-9c",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
-      "Shared key KAB. Message 1: Alice, E(K, KAB), E(RA, K). Message 2: RA, E(RB, KAB). Practical? Alice authenticated? Bob authenticated? K secure? If not, give the attack.",
-    answer:
-      "Practical: yes. Alice: not securely, because E(K, KAB) does not bind Alice, and E(RA, K) uses the new session key. Trudy can send Alice, E(K, KAB) for a K she chose, plus E(RA, K), then she can read or fake the RA check. Bob: Message 2 only returns RA in the clear and E(RB, KAB), which does not convince Alice in a strong way that this session's K is fresh and bound to Bob. K: no, Trudy can choose K and impersonate Alice.",
-    pattern: "If K is only encrypted under KAB and not bound to Alice and a nonce together, Trudy can plant K.",
+      "3-message protocol with shared key KAB. Message 3 is RB. Message 1: Alice, E(K, KAB), E(RA, K). Message 2: RA, E(RB, KAB). Practical? Alice authenticated? Bob authenticated? Session key K secure?",
+    answer: "Practical: yes. Alice authenticated: yes. Bob authenticated: yes. Session key secure: yes.",
+    pattern:
+      "The official key marks every column yes for (c). E(RA, K) binds the nonce to the session key, and Message 2 and RB complete the authentication.",
   },
   {
     id: "6-10a",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Fiat-Shamir: N = 55, v = 34. Bob accepts if y^2 = x * v^e mod N. First iteration: x = 4, e = 1, y = 24. Does Bob accept? Show your work.",
     answer:
-      "Left side: y^2 = 24^2 = 576, and 576 mod 55 = 26 (because 55 * 10 = 550, 576 - 550 = 26). Right side: x * v^e = 4 * 34^1 = 136, and 136 mod 55 = 26 (55 * 2 = 110, 136 - 110 = 26). 26 = 26, so Bob accepts.",
-    pattern: "Check y^2 vs x * v^e mod N. When e = 0, y is r. When e = 1, y = rS, so S = y * r^{-1}.",
+      "Yes, Bob accepts this iteration. We must show that y^2 = x * v^e mod N, that is, 24^2 = 4 * 34^1 mod 55. This is true since 24^2 = 576 = 26 mod 55 and 4 * 34 = 26 mod 55.",
+    pattern: "Check y^2 vs x * v^e mod N. When e = 0, y is r. When e = 1, y = rS, so S = r^{-1} * y.",
   },
   {
     id: "6-10b",
     deck: "CS 166 Test 2",
     chapter: "Ch 6-9",
+    source: "Stamp Test 2 review (current), official solutions",
     prompt:
       "Fiat-Shamir: N = 55, v = 34. Second iteration: x = 4, e = 0, y = 13. Find Alice's secret S. Hint: 13^{-1} mod 55 = 17.",
     answer:
-      "When e = 0, y = r, so r = 13 (and 13^2 = 169 = 4 mod 55, which matches x). From the first iteration, e = 1 and y = rS = 24, so S = 24 * 13^{-1} = 24 * 17 = 408, and 408 mod 55 = 23. Check: S^2 = 23^2 = 529, 529 mod 55 = 34, which equals v.",
-    pattern: "When e = 0 you learn r. Combine with an e = 1 round to get S = y * r^{-1} mod N.",
+      "Since x = r^2 mod 55 = 4 in (a) and (b), we assume that r is the same in both cases. Then from the iteration in (a), we have rS = 24 mod 55 and from (b), we have r = 13. Using the hint, we have S = r^{-1} rS = 17 * 24 mod 55 = 23.\nThe problem does not require it, but you can check that the solution is correct by verifying that v = S^2 mod N, that is, 34 = 23^2 mod 55.",
+    pattern: "Same x in both iterations means the same r. From e = 0, r = 13. Then S = 17 * 24 = 23 mod 55.",
   },
 ];

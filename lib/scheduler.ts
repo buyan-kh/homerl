@@ -34,7 +34,13 @@ export function applyGrade(prev: CardMemory | undefined, grade: Grade): CardMemo
   };
 }
 
+/** One "got it" that hasn't been missed since. This is what the learned count uses. */
 export function isLearned(card: CardMemory | undefined) {
+  return !!card && card.streak >= 1;
+}
+
+/** Three "got it" grades in a row. The card stays in the deck, but comes back rarely. */
+export function isGraduated(card: CardMemory | undefined) {
   return !!card && card.streak >= 3 && card.ease <= 0.35;
 }
 
@@ -48,7 +54,7 @@ export function pickNext(
     if (q.id === lastId) return 0.02;
     const card = memory[q.id];
     if (!card) return 1.4;
-    if (isLearned(card)) return 0.08;
+    if (isGraduated(card)) return 0.08;
     return card.ease;
   });
   const total = weights.reduce((sum, w) => sum + w, 0);

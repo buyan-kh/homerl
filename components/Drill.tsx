@@ -186,14 +186,7 @@ export function Drill() {
       <header className="flex w-full flex-col items-start gap-3 border-b border-border pb-6">
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="mt-1 text-2xl font-semibold text-stone-900">CS 166 Test 2 drill</h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          Write your answer first, then reveal the model answer and grade yourself.
-          Missed cards come back more often until the pattern sticks.
-        </p>
         <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground">
-          <p>
-            Learned {stats.learned} of {stats.total}
-          </p>
           <p>
             This session: {session.gotIt} solid, {session.missed} missed, {session.asked} reviewed
           </p>

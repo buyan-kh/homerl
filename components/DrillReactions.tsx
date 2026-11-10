@@ -3,25 +3,33 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 
 type DrillReactionsProps = {
-  /** Like / comment only after the model answer is visible */
+  /** Grade actions only after the model answer is visible */
   canGrade: boolean;
+  problemLiked: boolean;
+  onToggleProblemLike: () => void;
   onRefresh: () => void;
   onMissed: () => void;
   onClose: () => void;
   onGotIt: () => void;
 };
 
-export function DrillReactions({ canGrade, onRefresh, onMissed, onClose, onGotIt }: DrillReactionsProps) {
+export function DrillReactions({
+  canGrade,
+  problemLiked,
+  onToggleProblemLike,
+  onRefresh,
+  onMissed,
+  onClose,
+  onGotIt,
+}: DrillReactionsProps) {
   const formId = useId();
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentDone, setCommentDone] = useState(false);
-  const [likeActive, setLikeActive] = useState(false);
   const [gotItActive, setGotItActive] = useState(false);
 
   useEffect(() => {
     setCommentOpen(false);
     setCommentDone(false);
-    setLikeActive(false);
     setGotItActive(false);
   }, [canGrade]);
 
@@ -36,7 +44,7 @@ export function DrillReactions({ canGrade, onRefresh, onMissed, onClose, onGotIt
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-3">
+    <div className="flex w-full flex-col items-start gap-3">
       <style href="ui-drill-reactions" precedence="default">
         {css}
       </style>
@@ -71,16 +79,11 @@ export function DrillReactions({ canGrade, onRefresh, onMissed, onClose, onGotIt
         <button
           type="button"
           className="ui-drill-rbc__btn"
-          data-tone={likeActive ? "bad" : "neutral"}
-          aria-pressed={likeActive}
-          aria-label="Like — missed it"
-          title={canGrade ? "Missed it" : "Reveal the answer first"}
-          disabled={!canGrade || likeActive || gotItActive || commentDone}
-          onClick={() => {
-            if (!canGrade || likeActive) return;
-            setLikeActive(true);
-            onMissed();
-          }}
+          data-tone={problemLiked ? "love" : "neutral"}
+          aria-pressed={problemLiked}
+          aria-label={problemLiked ? "Unlike this problem" : "Like this problem"}
+          title="Like this problem"
+          onClick={onToggleProblemLike}
         >
           <IconHeart />
         </button>
@@ -91,7 +94,7 @@ export function DrillReactions({ canGrade, onRefresh, onMissed, onClose, onGotIt
           aria-pressed={gotItActive}
           aria-label="Got it"
           title={canGrade ? "Got it" : "Reveal the answer first"}
-          disabled={!canGrade || gotItActive || likeActive || commentDone}
+          disabled={!canGrade || gotItActive || commentDone}
           onClick={() => {
             if (!canGrade || gotItActive) return;
             setGotItActive(true);
@@ -102,8 +105,18 @@ export function DrillReactions({ canGrade, onRefresh, onMissed, onClose, onGotIt
         </button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Refresh new card · Comment close · Heart missed · Check got it
+        Refresh new card · Comment close · Heart saves a favorite · Check got it
       </p>
+      {canGrade ? (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          onClick={onMissed}
+          disabled={gotItActive || commentDone}
+        >
+          I missed it
+        </button>
+      ) : null}
       {commentOpen ? (
         <form
           id={formId}
@@ -134,8 +147,8 @@ export function DrillReactions({ canGrade, onRefresh, onMissed, onClose, onGotIt
 function motionDirections() {
   return (
     <p className="sr-only">
-      Refresh loads another question without grading. Heart marks missed and turns red. Comment opens
-      a note field; saving marks close and turns green.
+      Refresh loads another question without grading. Heart likes this problem and turns red; it does
+      not change your grade. Comment opens a note field; saving marks close and turns green.
     </p>
   );
 }
@@ -201,12 +214,12 @@ const css = /* css */ `
   color: rgba(0, 0, 0, 0.88);
 }
 .ui-drill-rbc__btn:disabled { opacity: 0.45; cursor: default; }
-.ui-drill-rbc__btn[data-tone="bad"] {
+.ui-drill-rbc__btn[data-tone="love"] {
   background: rgba(240, 68, 56, 0.1);
   box-shadow: inset 0 0 0 0.5px rgba(240, 68, 56, 0.35);
   color: #f04438;
 }
-.ui-drill-rbc__btn[data-tone="bad"] .ui-drill-rbc__fill { fill: currentColor; }
+.ui-drill-rbc__btn[data-tone="love"] .ui-drill-rbc__fill { fill: currentColor; }
 .ui-drill-rbc__btn[data-tone="good"] {
   background: rgba(95, 200, 138, 0.12);
   box-shadow: inset 0 0 0 0.5px rgba(30, 138, 79, 0.35);

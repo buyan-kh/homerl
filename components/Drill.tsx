@@ -190,7 +190,7 @@ export function Drill() {
           <p>
             This session: {session.gotIt} solid, {session.missed} missed, {session.asked} reviewed
           </p>
-          <Button type="button" variant="ghost" onClick={resetDeck}>
+          <Button type="button" variant="secondary" size="sm" onClick={resetDeck}>
             Reset memory
           </Button>
         </div>

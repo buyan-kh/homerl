@@ -13,6 +13,7 @@ import { TextArea } from "@/components/ui/text-area-clean";
 import { CONTENT_READ } from "@/lib/content-layout";
 import { pullProgress } from "@/lib/progress-sync";
 import { getServerLiked, loadLiked, saveLiked, subscribeLiked, toggleLiked } from "../lib/likes";
+import { loadNotes, saveNote } from "../lib/notes";
 import { clearMemory, getServerMemory, loadMemory, saveMemory, subscribeMemory } from "../lib/storage";
 import type { CardMemory, DeckMemory, Grade, Question } from "../lib/types";
 
@@ -100,10 +101,15 @@ export function Drill({ deckSlug }: DrillProps) {
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [session, setSession] = useState({ asked: 0, gotIt: 0, missed: 0 });
+  const [notesTick, setNotesTick] = useState(0);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const revealRef = useRef<HTMLDivElement>(null);
 
   const stats = useMemo(() => deckStats(questions, memory), [questions, memory]);
+  const cardNote = useMemo(() => {
+    void notesTick;
+    return current ? (loadNotes(deckSlug)[current.id] ?? "") : "";
+  }, [deckSlug, current?.id, notesTick, current]);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,10 +327,14 @@ export function Drill({ deckSlug }: DrillProps) {
               key={`${current.id}-${revealed}`}
               canGrade
               problemLiked={liked[current.id] === true}
+              savedComment={cardNote}
               onToggleProblemLike={() => toggleLiked(deckSlug, current.id)}
               onRefresh={skipCard}
               onMissed={() => grade("missed")}
-              onClose={() => grade("close")}
+              onCommentSave={(note) => {
+                saveNote(deckSlug, current.id, note);
+                setNotesTick((n) => n + 1);
+              }}
               onGotIt={() => grade("got_it")}
             />
           </div>

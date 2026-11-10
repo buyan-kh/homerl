@@ -6,41 +6,50 @@ type DrillReactionsProps = {
   /** Grade actions only after the model answer is visible */
   canGrade: boolean;
   problemLiked: boolean;
+  savedComment?: string;
   onToggleProblemLike: () => void;
   onRefresh: () => void;
   onMissed: () => void;
-  onClose: () => void;
+  onCommentSave: (note: string) => void;
   onGotIt: () => void;
 };
 
 export function DrillReactions({
   canGrade,
   problemLiked,
+  savedComment = "",
   onToggleProblemLike,
   onRefresh,
   onMissed,
-  onClose,
+  onCommentSave,
   onGotIt,
 }: DrillReactionsProps) {
   const formId = useId();
   const [commentOpen, setCommentOpen] = useState(false);
-  const [commentDone, setCommentDone] = useState(false);
+  const [commentDraft, setCommentDraft] = useState(savedComment);
+  const [commentSaved, setCommentSaved] = useState(Boolean(savedComment));
   const [gotItActive, setGotItActive] = useState(false);
 
   useEffect(() => {
     setCommentOpen(false);
-    setCommentDone(false);
+    setCommentDraft(savedComment);
+    setCommentSaved(Boolean(savedComment));
     setGotItActive(false);
-  }, [canGrade]);
+  }, [canGrade, savedComment]);
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const note = String(data.get("note") ?? "").trim();
     if (!note) return;
-    setCommentDone(true);
+    onCommentSave(note);
+    setCommentSaved(true);
     setCommentOpen(false);
-    onClose();
+  }
+
+  function toggleComment() {
+    if (!canGrade) return;
+    setCommentOpen((open) => !open);
   }
 
   return (
@@ -64,15 +73,12 @@ export function DrillReactions({
         <button
           type="button"
           className="ui-drill-rbc__btn"
-          data-tone={commentDone ? "good" : commentOpen ? "open" : "neutral"}
-          aria-pressed={commentOpen || commentDone}
-          aria-label="Comment — close enough"
-          title={canGrade ? "Comment" : "Reveal the answer first"}
-          disabled={!canGrade || commentDone}
-          onClick={() => {
-            if (!canGrade || commentDone) return;
-            setCommentOpen(true);
-          }}
+          data-tone={commentSaved ? "good" : commentOpen ? "open" : "neutral"}
+          aria-pressed={commentOpen}
+          aria-label="Comment — note what you almost had"
+          title={canGrade ? (commentOpen ? "Close comment" : "Comment") : "Reveal the answer first"}
+          disabled={!canGrade}
+          onClick={toggleComment}
         >
           <IconComment />
         </button>
@@ -94,7 +100,7 @@ export function DrillReactions({
           aria-pressed={gotItActive}
           aria-label="Got it"
           title={canGrade ? "Got it" : "Reveal the answer first"}
-          disabled={!canGrade || gotItActive || commentDone}
+          disabled={!canGrade || gotItActive}
           onClick={() => {
             if (!canGrade || gotItActive) return;
             setGotItActive(true);
@@ -105,14 +111,14 @@ export function DrillReactions({
         </button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Refresh new card · Comment close · Heart saves a favorite · Check got it
+        Refresh new card · Comment saves a note · Heart saves a favorite · Check got it
       </p>
       {canGrade ? (
         <button
           type="button"
           className="text-xs text-muted-foreground underline-offset-2 hover:underline"
           onClick={onMissed}
-          disabled={gotItActive || commentDone}
+          disabled={gotItActive}
         >
           I missed it
         </button>
@@ -131,6 +137,8 @@ export function DrillReactions({
             name="note"
             className="ui-drill-rbc__input"
             placeholder="What did you get close on?"
+            value={commentDraft}
+            onChange={(e) => setCommentDraft(e.target.value)}
             autoFocus
             required
           />
@@ -148,7 +156,7 @@ function MotionDirections() {
   return (
     <p className="sr-only">
       Refresh loads another question without grading. Heart likes this problem and turns red; it does
-      not change your grade. Comment opens a note field; saving marks close and turns green.
+      not change your grade. Comment toggles a note field; saving stores your note and turns the icon green.
     </p>
   );
 }

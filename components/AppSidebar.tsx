@@ -36,6 +36,7 @@ import {
 import { getCourse, listCourses } from "@/lib/decks";
 import { deckStats } from "@/lib/scheduler";
 import { clearMemory, loadMemory } from "@/lib/storage";
+import { clearAllLcProgress } from "@/lib/leetcode-progress";
 
 const PROFILE_NAME_KEY = "homerl-profile-name";
 const PROFILE_EMAIL_KEY = "homerl-profile-email";
@@ -108,6 +109,7 @@ export function AppSidebar() {
         clearMemory(section.slug);
       }
     }
+    clearAllLcProgress();
     router.refresh();
   }
 

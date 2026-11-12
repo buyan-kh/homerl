@@ -18,9 +18,10 @@ import { LLM_RL } from "@/data/llm-rl";
 import { LLM_P6_EVALS } from "@/data/llm-p6-evals";
 import { LLM_P7_INTERPRETABILITY } from "@/data/llm-p7-interpretability";
 import { LLM_P8_CAPSTONE } from "@/data/llm-p8-capstone";
+import { LEETCODE_LEVELS } from "@/data/leetcode/meta";
 import type { Question } from "./types";
 
-export type DeckKind = "drill" | "book";
+export type DeckKind = "drill" | "book" | "code";
 
 export type DeckDefinition = {
   slug: string;
@@ -28,7 +29,7 @@ export type DeckDefinition = {
   section: string;
   title: string;
   description: string;
-  /** Drills can reshuffle after a finished pass. Books stay in source order. */
+  /** Drills can reshuffle after a finished pass. Books stay in source order. Code sections are coding levels with their own page (no flash cards). */
   kind: DeckKind;
   /** "plain" turns off the CS 166 protocol-notation math rendering (KV, RL, E(...) and so on). Defaults to "protocol". */
   notation?: "protocol" | "plain";
@@ -220,6 +221,16 @@ const LLM_SECTIONS: DeckDefinition[] = [
   },
 ];
 
+const LEETCODE_SECTIONS: DeckDefinition[] = LEETCODE_LEVELS.map((level) => ({
+  slug: `leetcode/${level.slug}`,
+  courseSlug: "leetcode",
+  section: level.slug,
+  title: level.title,
+  kind: "code" as const,
+  description: level.description,
+  questions: [],
+}));
+
 export const COURSES: Record<string, CourseDefinition> = {
   cs166: {
     slug: "cs166",
@@ -233,10 +244,16 @@ export const COURSES: Record<string, CourseDefinition> = {
     description: "Build your own models and do real research, phase by phase from the 9-month plan. Each section is a book that follows the plan's readings in order, with Build this cards for every ship goal, plus a deep RL track alongside post-training.",
     sections: LLM_SECTIONS,
   },
+  leetcode: {
+    slug: "leetcode",
+    title: "LeetCode",
+    description: "Coding practice that runs Python right in the browser. Levels 1 to 3 are bite-sized drills for Python fluency, 4 to 6 are easy problems you can break into small steps, 7 and 8 are medium, and 9 and 10 are hard.",
+    sections: LEETCODE_SECTIONS,
+  },
 };
 
 export const DECKS: Record<string, DeckDefinition> = Object.fromEntries(
-  [...CS166_SECTIONS, ...LLM_SECTIONS].map((section) => [section.slug, section]),
+  [...CS166_SECTIONS, ...LLM_SECTIONS, ...LEETCODE_SECTIONS].map((section) => [section.slug, section]),
 );
 
 export function getCourse(slug: string): CourseDefinition | undefined {

@@ -550,7 +550,12 @@ export function Drill({ deckSlug }: DrillProps) {
           />
           {!revealed ? (
             <div className="flex items-center gap-2">
-              <Button type="submit">Reveal answer</Button>
+              <Button
+                type="submit"
+                className="bg-(--color-info)! text-(--color-on-info)! hover:bg-[color-mix(in_srgb,var(--color-info)_88%,transparent)]!"
+              >
+                Reveal answer
+              </Button>
               <Button type="button" variant="secondary" onClick={skipCard}>
                 Skip
               </Button>

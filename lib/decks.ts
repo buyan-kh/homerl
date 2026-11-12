@@ -32,6 +32,8 @@ export type DeckDefinition = {
   kind: DeckKind;
   /** "plain" turns off the CS 166 protocol-notation math rendering (KV, RL, E(...) and so on). Defaults to "protocol". */
   notation?: "protocol" | "plain";
+  /** Optional reference books shown on the section page and its course tile. */
+  books?: string[];
   questions: Question[];
 };
 
@@ -125,6 +127,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P1 Foundations (Weeks 1-7)",
     kind: "book",
     notation: "plain",
+    books: ["Mathematics for Machine Learning (Deisenroth, Faisal, Ong)", "Understanding Deep Learning (Simon Prince)", "Build a Large Language Model (From Scratch) (Sebastian Raschka)"],
     description: "Weeks 1 to 7. Linear algebra and MML, micrograd and backprop, probability and optimizers, makemore, Attention Is All You Need, nanoGPT and RoPE, CS336 assignment 1. Build cards for every weekly ship goal.",
     questions: LLM_P1_FOUNDATIONS,
   },
@@ -135,6 +138,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P2 Kernels and GPUs (Weeks 8-10)",
     kind: "book",
     notation: "plain",
+    books: ["How to Scale Your Model (Google DeepMind)", "The Ultra-Scale Playbook (Hugging Face)"],
     description: "Weeks 8 to 10. PyTorch internals, the profiler and torch.compile, the GPU execution and memory model, GPU Puzzles, Triton, and fused softmax and RMSNorm kernels.",
     questions: LLM_P2_KERNELS,
   },
@@ -145,6 +149,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P3 Architecture frontier (Weeks 11-21)",
     kind: "book",
     notation: "plain",
+    books: ["Understanding Deep Learning (Simon Prince)", "Build a Large Language Model (From Scratch) (Sebastian Raschka)"],
     description: "Weeks 11 to 21. PreNorm, FlashAttention 1 and 2, PI and YaRN, Switch and DeepSeekMoE, linear attention and GLA, Mamba and Mamba-2, DeltaNet and FLA, Gated DeltaNet, Kimi Linear (KDA), Attention Residuals, modded-nanogpt.",
     questions: LLM_P3_ARCHITECTURE,
   },
@@ -155,6 +160,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P4 Pretraining and scale (Weeks 22-26)",
     kind: "book",
     notation: "plain",
+    books: ["How to Scale Your Model (Google DeepMind)", "The Ultra-Scale Playbook (Hugging Face)"],
     description: "Weeks 22 to 26. Kaplan and Chinchilla scaling laws, the Ultra-Scale Playbook (precision, FSDP, parallelism), How to Scale Your Model and inference at scale, FineWeb data work, nanochat, and reading the Kimi K3 report.",
     questions: LLM_P4_PRETRAINING,
   },
@@ -165,6 +171,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P5 Post-training (Weeks 27-30)",
     kind: "book",
     notation: "plain",
+    books: ["RLHF Book (Nathan Lambert)", "Build a Large Language Model (From Scratch) (Sebastian Raschka)"],
     description: "Weeks 27 to 30. InstructGPT and SFT with TRL, DPO, DeepSeekMath and GRPO, DeepSeek-R1 and reasoning RL. Pair with the RL deep track.",
     questions: LLM_P5_POST_TRAINING,
   },
@@ -175,6 +182,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "RL deep track (with P5, Weeks 27-30)",
     kind: "book",
     notation: "plain",
+    books: ["Reinforcement Learning: An Introduction (Sutton and Barto)", "Spinning Up in Deep RL (OpenAI)", "RLHF Book (Nathan Lambert)", "Understanding Deep Learning (Simon Prince)"],
     description: "The largest section, studied alongside P5. MDPs, Bellman, the policy gradient theorem from first principles, REINFORCE and RLOO, GAE, actor-critic, TRPO, PPO in full, KL penalties and estimators, reward models, PPO for LLMs, DPO derivation, GRPO and its fixes (Dr. GRPO, DAPO, GSPO), RLVR, reward hacking, entropy collapse, process rewards, environments, importance sampling, and the rollout loop.",
     questions: LLM_RL,
   },
@@ -185,6 +193,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P6 Evals and graders (Weeks 31-32)",
     kind: "book",
     notation: "plain",
+    books: ["RLHF Book (Nathan Lambert)"],
     description: "Weeks 31 to 32. lm-evaluation-harness tasks and scoring modes, benchmark statistics, contamination, pass@k, judges, deterministic graders, agentic evals, and evaluating RL environments.",
     questions: LLM_P6_EVALS,
   },
@@ -195,6 +204,7 @@ const LLM_SECTIONS: DeckDefinition[] = [
     title: "P7 Interpretability (Weeks 33-34)",
     kind: "book",
     notation: "plain",
+    books: ["Understanding Deep Learning (Simon Prince)"],
     description: "Weeks 33 to 34. QK and OV circuits, induction heads, logit lens and activation patching, TransformerLens and ARENA, probes, superposition, Towards Monosemanticity, and sparse autoencoders (L1, TopK, JumpReLU).",
     questions: LLM_P7_INTERPRETABILITY,
   },

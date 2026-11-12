@@ -37,6 +37,12 @@ function SectionRow({ section }: { section: DeckDefinition }) {
       </span>
       <h2 className="text-lg font-semibold text-stone-900">{section.title}</h2>
       <p className="text-sm leading-6 text-muted-foreground">{section.description}</p>
+      {section.books && section.books.length > 0 ? (
+        <p className="text-xs leading-5 text-stone-600">
+          <span className="font-mono uppercase tracking-wide text-stone-500">Books: </span>
+          {section.books.join("; ")}
+        </p>
+      ) : null}
       <StudyProgressBar
         label={`${section.title} progress`}
         learned={stats.learned}

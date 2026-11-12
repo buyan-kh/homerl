@@ -464,6 +464,16 @@ export function Drill({ deckSlug }: DrillProps) {
         </Link>
         <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">homeRL</p>
         <h1 className="text-2xl font-semibold text-stone-900">{deckTitle}</h1>
+        {deckDef.books && deckDef.books.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <p className="font-mono text-xs tracking-wide text-stone-500 uppercase">Books</p>
+            <ul className="list-disc pl-5 text-sm leading-6 text-stone-700">
+              {deckDef.books.map((book) => (
+                <li key={book}>{book}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="text-sm leading-6 text-muted-foreground">
           {stats.learned} of {stats.total} cards are already learned in this browser.
           Write an answer, reveal the model answer, and grade yourself. Missed questions come back more often.

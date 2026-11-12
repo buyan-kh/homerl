@@ -254,8 +254,10 @@ const css = /* css */ `
   /* The gray tray frames the white card on every side */
   padding: 6px;
   border-radius: 22px;
-  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--ui-pm-ink);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--sidebar-foreground, var(--ui-pm-ink));
   -webkit-font-smoothing: antialiased;
 }
 .ui-pm *, .ui-pm *::before, .ui-pm *::after { box-sizing: border-box; }
@@ -270,13 +272,13 @@ const css = /* css */ `
 .ui-pm__user {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 10px 12px;
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.5rem;
 }
 .ui-pm__avatar {
   flex: none;
-  width: 42px;
-  height: 42px;
+  width: 2rem;
+  height: 2rem;
   overflow: hidden;
   border-radius: 50%;
   color: var(--ui-pm-fill);
@@ -288,15 +290,16 @@ const css = /* css */ `
 }
 .ui-pm__name {
   overflow-wrap: anywhere;
-  font-size: 15px;
+  font-size: 0.875rem;
   font-weight: 500;
-  line-height: 22px;
+  line-height: 1.25rem;
+  color: var(--sidebar-foreground, var(--ui-pm-ink));
 }
 .ui-pm__email {
   overflow: hidden;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--ui-pm-muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: color-mix(in oklab, var(--sidebar-foreground, var(--ui-pm-muted)) 70%, transparent);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -313,11 +316,11 @@ const css = /* css */ `
 .ui-pm__item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.5rem;
   width: 100%;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 12px;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 0.375rem;
 }
 .ui-pm__item {
   margin: 0;
@@ -325,7 +328,9 @@ const css = /* css */ `
   background: transparent;
   font: inherit;
   text-align: left;
-  color: var(--ui-pm-text);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--sidebar-foreground, var(--ui-pm-text));
   cursor: pointer;
   transition: background-color 160ms ease, color 160ms ease;
 }
@@ -341,12 +346,12 @@ const css = /* css */ `
   display: grid;
   place-items: center;
   flex: none;
-  width: 20px;
-  height: 20px;
-  color: var(--ui-pm-icon);
+  width: 1rem;
+  height: 1rem;
+  color: var(--sidebar-foreground, var(--ui-pm-icon));
   transition: color 160ms ease;
 }
-.ui-pm__icon svg { width: 20px; height: 20px; }
+.ui-pm__icon svg { width: 1rem; height: 1rem; }
 .ui-pm__item:hover .ui-pm__icon,
 .ui-pm__item:focus-visible .ui-pm__icon { color: var(--ui-pm-ink); }
 
@@ -354,8 +359,9 @@ const css = /* css */ `
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
   white-space: nowrap;
   text-overflow: ellipsis;
 }

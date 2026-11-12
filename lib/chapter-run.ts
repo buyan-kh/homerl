@@ -65,7 +65,7 @@ export function beginChapterRun(
   deckSlug: string,
   chapterKey: string,
   ids: string[],
-  options?: { keepOrder?: boolean },
+  options?: { keepOrder?: boolean; pickStart?: (order: string[]) => string | undefined },
 ) {
   const runs = loadDeck(deckSlug);
   const saved = runs[chapterKey];
@@ -87,7 +87,8 @@ export function beginChapterRun(
       : differentOrder(ids, saved.order);
   runs[chapterKey] = { order, seen: [], finished: false };
   saveDeck(deckSlug, runs);
-  return { order, startId: order[0] };
+  const picked = options?.pickStart?.(order);
+  return { order, startId: picked && order.includes(picked) ? picked : order[0] };
 }
 
 /** Remember that this card was left during the current pass. Completing the list finishes the pass. */

@@ -48,7 +48,7 @@ export function buildDeckStudyOptions(questions: Question[], memory: DeckMemory)
     const ease = heavyMiss.card?.ease ?? 1.4;
     options.push({
       id: `${QUESTION_PREFIX}${heavyMiss.q.id}`,
-      label: `Card ${heavyMiss.q.id}`,
+      label: "Most-missed card",
       reason: `Strong review signal: ${misses} miss${misses === 1 ? "" : "es"}, weight ${ease.toFixed(1)}×. ${
         heavyMiss.q.chapter ?? "Drill this pattern again."
       }`,
@@ -61,7 +61,7 @@ export function buildDeckStudyOptions(questions: Question[], memory: DeckMemory)
     const unseenCount = questions.filter((q) => !memory[q.id]?.seen).length;
     options.push({
       id: `${QUESTION_PREFIX}${fresh.id}`,
-      label: `New card ${fresh.id}`,
+      label: "Next new card",
       reason: `${unseenCount} card${unseenCount === 1 ? "" : "s"} you have not opened yet. Start with this one.`,
       signal: unseenCount > 8 ? 3 : 2,
     });
@@ -72,7 +72,7 @@ export function buildDeckStudyOptions(questions: Question[], memory: DeckMemory)
     id: RANDOM_ID,
     label: "Scheduler pick",
     reason: schedulerPick
-      ? `Weighted draw favors **${schedulerPick.id}** right now (${stats.learned}/${stats.total} learned).`
+      ? `Weighted draw favors a weak card right now (${stats.learned}/${stats.total} learned).`
       : `Weighted draw across the deck (${stats.learned}/${stats.total} learned).`,
     signal: stats.learned < stats.total * 0.4 ? 2 : 1,
   });

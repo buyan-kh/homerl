@@ -3,7 +3,7 @@ import type { Question } from "../lib/types";
 export const LLM_RL: Question[] = [
   {
     "id": "llm-rl-01",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 4; OpenAI Spinning Up, Part 1",
     "chapter": "RL1 MDPs and returns",
     "prompt": "Define a Markov decision process and the RL objective.",
@@ -12,7 +12,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-02",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 4; OpenAI Spinning Up, Part 1",
     "chapter": "RL1 MDPs and returns",
     "prompt": "What is the return, why discount, and what does gamma mean as a horizon?",
@@ -21,7 +21,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-03",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 4; OpenAI Spinning Up, Part 1",
     "chapter": "RL1 MDPs and returns",
     "prompt": "How do you cast LLM generation as an MDP? Compare the token-level and sequence-level views.",
@@ -30,7 +30,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-04",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 4; OpenAI Spinning Up, Part 1",
     "chapter": "RL1 MDPs and returns",
     "prompt": "Episodic vs continuing tasks, and what is the 'horizon' problem in long LLM rollouts?",
@@ -39,7 +39,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-05",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 6",
     "chapter": "RL2 Value functions and Bellman equations",
     "prompt": "Define V, Q and the advantage A. What is the relation between them?",
@@ -48,7 +48,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-06",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 6",
     "chapter": "RL2 Value functions and Bellman equations",
     "prompt": "Derive the Bellman expectation equation for V_pi.",
@@ -57,7 +57,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-07",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 6",
     "chapter": "RL2 Value functions and Bellman equations",
     "prompt": "What is the Bellman optimality equation, and how does it lead to value iteration and Q-learning?",
@@ -66,7 +66,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-08",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Sutton and Barto, Reinforcement Learning: An Introduction (2nd ed.), chapters 3 to 6",
     "chapter": "RL2 Value functions and Bellman equations",
     "prompt": "Define the TD error and compare Monte Carlo and TD targets for estimating V.",
@@ -75,7 +75,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-09",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992 (REINFORCE); Sutton et al. 2000; OpenAI Spinning Up, Intro to Policy Optimization",
     "chapter": "RL3 The policy gradient theorem",
     "prompt": "Derive the log-derivative (score function) trick.",
@@ -84,7 +84,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-10",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992 (REINFORCE); Sutton et al. 2000; OpenAI Spinning Up, Intro to Policy Optimization",
     "chapter": "RL3 The policy gradient theorem",
     "prompt": "Derive the policy gradient for trajectories and show why the environment dynamics drop out.",
@@ -93,7 +93,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-11",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992 (REINFORCE); Sutton et al. 2000; OpenAI Spinning Up, Intro to Policy Optimization",
     "chapter": "RL3 The policy gradient theorem",
     "prompt": "Why can you replace the full return R(tau) with the reward-to-go from time t? (causality)",
@@ -102,7 +102,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-12",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992 (REINFORCE); Sutton et al. 2000; OpenAI Spinning Up, Intro to Policy Optimization",
     "chapter": "RL3 The policy gradient theorem",
     "prompt": "Prove that subtracting a state-dependent baseline b(s_t) leaves the policy gradient unbiased.",
@@ -111,7 +111,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-13",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992 (REINFORCE); Sutton et al. 2000; OpenAI Spinning Up, Intro to Policy Optimization",
     "chapter": "RL3 The policy gradient theorem",
     "prompt": "Worked example: a 3-armed bandit with softmax policy, logits z = [1, 0, 0]. You sample arm 0 and get reward 1. Compute grad log pi(a = 0) with respect to z and the REINFORCE update with lr 0.5 and no baseline.",
@@ -120,7 +120,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-14",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992; Ahmadian et al. 2024, Back to Basics: Revisiting REINFORCE Style Optimization for RLHF",
     "chapter": "RL4 REINFORCE and variance reduction",
     "prompt": "Write the REINFORCE algorithm as you would implement it for an LLM.",
@@ -129,7 +129,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-15",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992; Ahmadian et al. 2024, Back to Basics: Revisiting REINFORCE Style Optimization for RLHF",
     "chapter": "RL4 REINFORCE and variance reduction",
     "prompt": "What makes policy gradient estimates high variance, and what are the standard variance reduction tools?",
@@ -138,7 +138,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-16",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992; Ahmadian et al. 2024, Back to Basics: Revisiting REINFORCE Style Optimization for RLHF",
     "chapter": "RL4 REINFORCE and variance reduction",
     "prompt": "What is RLOO, and why do Ahmadian et al. argue REINFORCE-style methods are enough for RLHF?",
@@ -147,7 +147,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-17",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Williams 1992; Ahmadian et al. 2024, Back to Basics: Revisiting REINFORCE Style Optimization for RLHF",
     "chapter": "RL4 REINFORCE and variance reduction",
     "prompt": "Compute RLOO and GRPO advantages for rewards [1, 0, 0, 1, 1] in one group.",
@@ -156,7 +156,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-18",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2015, High-Dimensional Continuous Control Using Generalized Advantage Estimation (arXiv 1506.02438)",
     "chapter": "RL5 Advantage estimation and GAE",
     "prompt": "Derive GAE from n-step advantage estimates.",
@@ -165,7 +165,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-19",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2015, High-Dimensional Continuous Control Using Generalized Advantage Estimation (arXiv 1506.02438)",
     "chapter": "RL5 Advantage estimation and GAE",
     "prompt": "What do lambda = 0 and lambda = 1 give in GAE, and how do you choose lambda?",
@@ -174,7 +174,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-20",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2015, High-Dimensional Continuous Control Using Generalized Advantage Estimation (arXiv 1506.02438)",
     "chapter": "RL5 Advantage estimation and GAE",
     "prompt": "Compute GAE by hand: gamma = 1, lambda = 0.95, rewards [0, 0, 1] (terminal after step 2), values V = [0.5, 0.6, 0.8], V after terminal = 0.",
@@ -183,7 +183,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-10",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2015, High-Dimensional Continuous Control Using Generalized Advantage Estimation (arXiv 1506.02438)",
     "chapter": "RL5 Advantage estimation and GAE",
     "prompt": "What is an advantage, and what does GAE do?",
@@ -192,7 +192,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-21",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2015, High-Dimensional Continuous Control Using Generalized Advantage Estimation (arXiv 1506.02438)",
     "chapter": "RL5 Advantage estimation and GAE",
     "prompt": "Write GAE in PyTorch for a batch of right-padded response sequences.",
@@ -201,7 +201,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-22",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Mnih et al. 2016 (A3C); OpenAI Spinning Up; Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL6 Actor-critic",
     "prompt": "What is an actor-critic method, and what losses does it optimize?",
@@ -210,7 +210,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-23",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Mnih et al. 2016 (A3C); OpenAI Spinning Up; Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL6 Actor-critic",
     "prompt": "For LLM PPO, where does the value function come from, and what are the design choices?",
@@ -219,7 +219,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-24",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Mnih et al. 2016 (A3C); OpenAI Spinning Up; Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL6 Actor-critic",
     "prompt": "What is PPO's value clipping, and is it worth using?",
@@ -228,7 +228,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-25",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Kakade and Langford 2002; Schulman et al. 2015, Trust Region Policy Optimization (arXiv 1502.05477)",
     "chapter": "RL7 Trust regions and TRPO",
     "prompt": "Why do policy gradient methods need a trust region? What goes wrong with large steps?",
@@ -237,7 +237,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-26",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Kakade and Langford 2002; Schulman et al. 2015, Trust Region Policy Optimization (arXiv 1502.05477)",
     "chapter": "RL7 Trust regions and TRPO",
     "prompt": "Derive the importance-sampled surrogate objective used by TRPO and PPO.",
@@ -246,7 +246,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-27",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Kakade and Langford 2002; Schulman et al. 2015, Trust Region Policy Optimization (arXiv 1502.05477)",
     "chapter": "RL7 Trust regions and TRPO",
     "prompt": "What does TRPO optimize, and how does it solve the constrained problem?",
@@ -255,7 +255,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-28",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Kakade and Langford 2002; Schulman et al. 2015, Trust Region Policy Optimization (arXiv 1502.05477)",
     "chapter": "RL7 Trust regions and TRPO",
     "prompt": "What is the natural gradient, and why is it invariant to parameterization?",
@@ -264,7 +264,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-08",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2017, Proximal Policy Optimization Algorithms (arXiv 1707.06347); Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL8 PPO in full detail",
     "prompt": "Write the PPO clipped objective and say what clipping prevents.",
@@ -273,7 +273,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-29",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2017, Proximal Policy Optimization Algorithms (arXiv 1707.06347); Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL8 PPO in full detail",
     "prompt": "Work through the PPO clipped objective case by case: eps = 0.2, for (A = 2, ratio 1.5), (A = 2, ratio 0.7), (A = -1, ratio 0.7), (A = -1, ratio 1.5).",
@@ -282,7 +282,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-30",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2017, Proximal Policy Optimization Algorithms (arXiv 1707.06347); Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL8 PPO in full detail",
     "prompt": "Write the full PPO training iteration with its loss terms and hyperparameters.",
@@ -291,7 +291,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-31",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2017, Proximal Policy Optimization Algorithms (arXiv 1707.06347); Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL8 PPO in full detail",
     "prompt": "Which diagnostics do you log in a PPO-style run, and what does each tell you?",
@@ -300,7 +300,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-32",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Schulman et al. 2017, Proximal Policy Optimization Algorithms (arXiv 1707.06347); Huang et al., The 37 Implementation Details of PPO",
     "chapter": "RL8 PPO in full detail",
     "prompt": "Why do 'implementation details' matter so much for PPO? Give examples.",
@@ -309,7 +309,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-fd-14",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019, Fine-Tuning Language Models from Human Preferences (arXiv 1909.08593); John Schulman, Approximating KL Divergence (blog)",
     "chapter": "RL9 KL penalty vs KL constraint",
     "prompt": "Forward KL(p || q) vs reverse KL(q || p): which is mode-covering and which is mode-seeking, and where do they show up for LLMs?",
@@ -318,7 +318,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-07",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019, Fine-Tuning Language Models from Human Preferences (arXiv 1909.08593); John Schulman, Approximating KL Divergence (blog)",
     "chapter": "RL9 KL penalty vs KL constraint",
     "prompt": "Why does RLHF add a KL penalty to the reference model, and what does the per-token reward look like?",
@@ -327,7 +327,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-33",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019, Fine-Tuning Language Models from Human Preferences (arXiv 1909.08593); John Schulman, Approximating KL Divergence (blog)",
     "chapter": "RL9 KL penalty vs KL constraint",
     "prompt": "KL penalty vs KL constraint: what is the difference, and what is the adaptive KL controller?",
@@ -336,7 +336,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-34",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019, Fine-Tuning Language Models from Human Preferences (arXiv 1909.08593); John Schulman, Approximating KL Divergence (blog)",
     "chapter": "RL9 KL penalty vs KL constraint",
     "prompt": "What are the k1, k2 and k3 KL estimators, and which does GRPO use?",
@@ -345,7 +345,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-35",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019, Fine-Tuning Language Models from Human Preferences (arXiv 1909.08593); John Schulman, Approximating KL Divergence (blog)",
     "chapter": "RL9 KL penalty vs KL constraint",
     "prompt": "KL in the reward vs KL in the loss: what is the difference in practice?",
@@ -354,7 +354,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-36",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Bradley and Terry 1952; Ouyang et al. 2022; Gao et al. 2022, Scaling Laws for Reward Model Overoptimization (arXiv 2210.10760)",
     "chapter": "RL10 Reward modeling",
     "prompt": "Derive the reward model loss from the Bradley-Terry model by maximum likelihood.",
@@ -363,7 +363,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-06",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Bradley and Terry 1952; Ouyang et al. 2022; Gao et al. 2022, Scaling Laws for Reward Model Overoptimization (arXiv 2210.10760)",
     "chapter": "RL10 Reward modeling",
     "prompt": "Write the Bradley-Terry reward model loss and compute it when r(chosen) = 1.5 and r(rejected) = 0.5.",
@@ -372,7 +372,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-37",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Bradley and Terry 1952; Ouyang et al. 2022; Gao et al. 2022, Scaling Laws for Reward Model Overoptimization (arXiv 2210.10760)",
     "chapter": "RL10 Reward modeling",
     "prompt": "How is a reward model built and evaluated in practice?",
@@ -381,7 +381,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-38",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Bradley and Terry 1952; Ouyang et al. 2022; Gao et al. 2022, Scaling Laws for Reward Model Overoptimization (arXiv 2210.10760)",
     "chapter": "RL10 Reward modeling",
     "prompt": "What did Gao et al. (2022) find about reward model overoptimization?",
@@ -390,7 +390,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-23",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Bradley and Terry 1952; Ouyang et al. 2022; Gao et al. 2022, Scaling Laws for Reward Model Overoptimization (arXiv 2210.10760)",
     "chapter": "RL10 Reward modeling",
     "prompt": "What is Constitutional AI and RLAIF?",
@@ -399,7 +399,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-24",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Bradley and Terry 1952; Ouyang et al. 2022; Gao et al. 2022, Scaling Laws for Reward Model Overoptimization (arXiv 2210.10760)",
     "chapter": "RL10 Reward modeling",
     "prompt": "What are the risks of using an LLM as the source of preference labels?",
@@ -408,7 +408,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-39",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019; Stiennon et al. 2020, Learning to Summarize from Human Feedback; Ouyang et al. 2022",
     "chapter": "RL11 PPO for LLMs",
     "prompt": "Walk through one iteration of RLHF PPO for an LLM, data flow included.",
@@ -417,7 +417,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-09",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019; Stiennon et al. 2020, Learning to Summarize from Human Feedback; Ouyang et al. 2022",
     "chapter": "RL11 PPO for LLMs",
     "prompt": "Which models must be in memory for PPO-based RLHF, and why is it so expensive?",
@@ -426,7 +426,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-40",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Ziegler et al. 2019; Stiennon et al. 2020, Learning to Summarize from Human Feedback; Ouyang et al. 2022",
     "chapter": "RL11 PPO for LLMs",
     "prompt": "What practical tricks matter in RLHF PPO for LLMs?",
@@ -435,7 +435,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-41",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Rafailov et al. 2023, Direct Preference Optimization (arXiv 2305.18290)",
     "chapter": "RL12 DPO derivation",
     "prompt": "Derive the optimal policy of the KL-regularized RLHF objective.",
@@ -444,7 +444,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-42",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Rafailov et al. 2023, Direct Preference Optimization (arXiv 2305.18290)",
     "chapter": "RL12 DPO derivation",
     "prompt": "Derive the DPO loss from the optimal policy and the Bradley-Terry model.",
@@ -453,7 +453,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-43",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Rafailov et al. 2023, Direct Preference Optimization (arXiv 2305.18290)",
     "chapter": "RL12 DPO derivation",
     "prompt": "What is the DPO gradient, and what does it say the loss does?",
@@ -462,7 +462,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-44",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "Write the full GRPO objective from DeepSeekMath.",
@@ -471,7 +471,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ip-07",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "Implement a GRPO policy loss given per-token log-probs.",
@@ -480,7 +480,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-17",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "In GRPO, what happens when all 8 samples for a prompt get the same reward, and what do people do about it?",
@@ -489,7 +489,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-45",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "Derive the length bias in GRPO's per-sequence normalization (Dr. GRPO) with a numeric example.",
@@ -498,7 +498,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-46",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "Why does dividing by the group std bias GRPO, according to Dr. GRPO?",
@@ -507,7 +507,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-47",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "What are DAPO's four techniques, and what problem does each address?",
@@ -516,7 +516,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-48",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "What is GSPO, and why use sequence-level importance ratios?",
@@ -525,7 +525,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-18",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Shao et al. 2024 (GRPO); Liu et al. 2025, Understanding R1-Zero-Like Training (Dr. GRPO, arXiv 2503.20783); Yu et al. 2025, DAPO (arXiv 2503.14476)",
     "chapter": "RL13 GRPO and its fixes",
     "prompt": "Name critiques and fixes of vanilla GRPO from 2025 work.",
@@ -534,7 +534,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-15",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Lambert et al. 2024, Tulu 3 (RLVR); DeepSeek-AI 2025, DeepSeek-R1",
     "chapter": "RL14 RLVR and verifiable rewards",
     "prompt": "What is RL with verifiable rewards (RLVR), and why did it take off in 2024 and 2025?",
@@ -543,7 +543,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-49",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Lambert et al. 2024, Tulu 3 (RLVR); DeepSeek-AI 2025, DeepSeek-R1",
     "chapter": "RL14 RLVR and verifiable rewards",
     "prompt": "What exactly goes into a verifiable reward for math or code, and what are the common design choices?",
@@ -552,7 +552,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-50",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Lambert et al. 2024, Tulu 3 (RLVR); DeepSeek-AI 2025, DeepSeek-R1",
     "chapter": "RL14 RLVR and verifiable rewards",
     "prompt": "Why did RLVR work so well for reasoning models compared with reward-model RLHF?",
@@ -561,7 +561,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-51",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Amodei et al. 2016, Concrete Problems in AI Safety; DeepMind's specification gaming examples list; Gao et al. 2022",
     "chapter": "RL15 Reward hacking and overoptimization",
     "prompt": "Define reward hacking and specification gaming, and give the classic non-LLM example.",
@@ -570,7 +570,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-21",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Amodei et al. 2016, Concrete Problems in AI Safety; DeepMind's specification gaming examples list; Gao et al. 2022",
     "chapter": "RL15 Reward hacking and overoptimization",
     "prompt": "Give four concrete reward hacking examples in LLM training.",
@@ -579,7 +579,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-22",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Amodei et al. 2016, Concrete Problems in AI Safety; DeepMind's specification gaming examples list; Gao et al. 2022",
     "chapter": "RL15 Reward hacking and overoptimization",
     "prompt": "How do you detect and mitigate reward hacking during an RL run?",
@@ -588,7 +588,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ip-13",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Amodei et al. 2016, Concrete Problems in AI Safety; DeepMind's specification gaming examples list; Gao et al. 2022",
     "chapter": "RL15 Reward hacking and overoptimization",
     "prompt": "Your RL run's training reward climbs steadily, but your held-out eval is flat and response length has tripled. What do you do?",
@@ -597,7 +597,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-fd-15",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Cui et al. 2025, The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models (arXiv 2505.22617); DAPO",
     "chapter": "RL16 Exploration and entropy collapse",
     "prompt": "What is entropy of a next-token distribution, and why do people monitor it during RL training?",
@@ -606,7 +606,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-52",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Cui et al. 2025, The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models (arXiv 2505.22617); DAPO",
     "chapter": "RL16 Exploration and entropy collapse",
     "prompt": "Why does policy entropy collapse during RL for LLMs, and what mechanism do Cui et al. (2025) describe?",
@@ -615,7 +615,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-53",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Cui et al. 2025, The Entropy Mechanism of Reinforcement Learning for Reasoning Language Models (arXiv 2505.22617); DAPO",
     "chapter": "RL16 Exploration and entropy collapse",
     "prompt": "What tools keep exploration alive in LLM RL, and what are their tradeoffs?",
@@ -624,7 +624,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-po-19",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Lightman et al. 2023, Let's Verify Step by Step (arXiv 2305.20050); Wang et al. 2023, Math-Shepherd (arXiv 2312.08935)",
     "chapter": "RL17 Process vs outcome rewards",
     "prompt": "Outcome reward vs process reward: what is the difference, and what is the evidence?",
@@ -633,7 +633,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-54",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Lightman et al. 2023, Let's Verify Step by Step (arXiv 2305.20050); Wang et al. 2023, Math-Shepherd (arXiv 2312.08935)",
     "chapter": "RL17 Process vs outcome rewards",
     "prompt": "How are process reward models trained, with human labels and without them?",
@@ -642,7 +642,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-20",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "What are the components of an RL environment for training an LLM agent?",
@@ -651,7 +651,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-55",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "Sketch the code interface of an RL environment for LLM agents and the episode loop.",
@@ -660,7 +660,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-21",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "What pass rate should training tasks have for the current policy, and why?",
@@ -669,7 +669,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-22",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "Before shipping a new environment for training, which validation checks should every task pass?",
@@ -678,7 +678,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-23",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "List reward hacks you should expect a strong policy to find in a coding or tool-use environment.",
@@ -687,7 +687,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-24",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "Sparse outcome reward vs shaped partial credit in agent environments: tradeoffs?",
@@ -696,7 +696,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-27",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "What are rubric-based rewards for non-verifiable tasks, and what are their risks?",
@@ -705,7 +705,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-28",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Gymnasium API; SWE-bench and tau-bench papers; your own environment work",
     "chapter": "RL18 RL environments and deterministic graders",
     "prompt": "What are the pitfalls of using an LLM-simulated user in an agent environment?",
@@ -714,7 +714,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-56",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Precup et al. 2000; Espeholt et al. 2018, IMPALA (arXiv 1802.01561); Kimi Linear report (truncated importance sampling in RL)",
     "chapter": "RL19 Off-policy learning and importance sampling",
     "prompt": "Derive importance sampling and show why its variance can explode.",
@@ -723,7 +723,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-57",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Precup et al. 2000; Espeholt et al. 2018, IMPALA (arXiv 1802.01561); Kimi Linear report (truncated importance sampling in RL)",
     "chapter": "RL19 Off-policy learning and importance sampling",
     "prompt": "Why is LLM RL usually slightly off-policy even when you think it is on-policy?",
@@ -732,7 +732,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-58",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Precup et al. 2000; Espeholt et al. 2018, IMPALA (arXiv 1802.01561); Kimi Linear report (truncated importance sampling in RL)",
     "chapter": "RL19 Off-policy learning and importance sampling",
     "prompt": "What is truncated importance sampling (TIS) for the train/inference mismatch, and how is it applied?",
@@ -741,7 +741,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-59",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: Precup et al. 2000; Espeholt et al. 2018, IMPALA (arXiv 1802.01561); Kimi Linear report (truncated importance sampling in RL)",
     "chapter": "RL19 Off-policy learning and importance sampling",
     "prompt": "What does V-trace (IMPALA) do, and why is it relevant to asynchronous LLM RL?",
@@ -750,7 +750,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-60",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
     "prompt": "Write the practical GRPO/RLVR training loop end to end, as a system.",
@@ -759,7 +759,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-ev-25",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
     "prompt": "What systems issues dominate when you run RL on agent environments at scale?",
@@ -768,7 +768,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-61",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
     "prompt": "Colocated vs disaggregated RL systems: what are the designs and tradeoffs?",
@@ -777,7 +777,7 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-62",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
     "prompt": "Your RL run is misbehaving. Give a debugging checklist in order.",
@@ -786,28 +786,28 @@ export const LLM_RL: Question[] = [
   },
   {
     "id": "llm-rl-build-01",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
-    "prompt": "Build this (RL track): REINFORCE and PPO from scratch on classic control",
+    "prompt": "Build this: REINFORCE and PPO from scratch on classic control",
     "answer": "Spec: Implement REINFORCE (with and without a baseline), actor-critic with GAE, and PPO-clip from scratch in PyTorch on CartPole and one continuous task (e.g. Pendulum), and compare with a reference implementation.\n\nSteps:\n1. REINFORCE with reward-to-go; add a learned value baseline; measure the variance of gradient estimates across 100 batches with and without it.\n2. Actor-critic with GAE; sweep lambda in {0, 0.9, 0.95, 1}.\n3. PPO-clip with minibatch epochs, advantage normalization, value loss and entropy bonus; log approximate KL and clip fraction.\n4. 5 seeds per configuration; plot mean and spread; compare with a reference implementation (e.g. CleanRL) on the same task.\n\nSuccess looks like: PPO solves CartPole reliably across seeds, your curves fall in the range of the reference implementation, and a plot shows how the baseline and lambda change gradient variance.",
     "pattern": "Build this: REINFORCE and PPO from scratch on classic control"
   },
   {
     "id": "llm-rl-build-02",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
-    "prompt": "Build this (RL track): GRPO variants ablation: vanilla vs Dr. GRPO vs DAPO-style",
-    "answer": "Spec: On your W29 GRPO math setup, compare loss and advantage variants one change at a time.\n\nSteps:\n1. Baseline: vanilla GRPO (std normalization, per-sequence mean, symmetric clip 0.2, small KL).\n2. Changes, each on its own: no std division; token-level loss; clip-higher (0.2 / 0.28); dynamic sampling; KL removed.\n3. Same prompts, budget and eval; 2 to 3 seeds for the most important arms.\n4. Track accuracy, response length (split by correct and wrong), entropy, and the fraction of zero-variance groups.\n\nSuccess looks like: A table and curves showing which change moved accuracy, length and entropy, agreeing with (or, with evidence, contradicting) the Dr. GRPO and DAPO claims at your scale.",
+    "prompt": "Build this: GRPO variants ablation: vanilla vs Dr. GRPO vs DAPO-style",
+    "answer": "Spec: On your GRPO math setup from the post-training build, compare loss and advantage variants one change at a time.\n\nSteps:\n1. Baseline: vanilla GRPO (std normalization, per-sequence mean, symmetric clip 0.2, small KL).\n2. Changes, each on its own: no std division; token-level loss; clip-higher (0.2 / 0.28); dynamic sampling; KL removed.\n3. Same prompts, budget and eval; 2 to 3 seeds for the most important arms.\n4. Track accuracy, response length (split by correct and wrong), entropy, and the fraction of zero-variance groups.\n\nSuccess looks like: A table and curves showing which change moved accuracy, length and entropy, agreeing with (or, with evidence, contradicting) the Dr. GRPO and DAPO claims at your scale.",
     "pattern": "Build this: GRPO variants ablation: vanilla vs Dr. GRPO vs DAPO-style"
   },
   {
     "id": "llm-rl-build-03",
-    "deck": "RL deep track (with P5, W27-30)",
+    "deck": "RL deep track (with P5)",
     "source": "Reading: verl (HybridFlow) and OpenRLHF documentation; TRL GRPOTrainer documentation",
     "chapter": "RL20 The rollout and training loop",
-    "prompt": "Build this (RL track): A reward-hacking audit of your own environment",
+    "prompt": "Build this: A reward-hacking audit of your own environment",
     "answer": "Spec: Red-team one of your RL environments: find the ways a policy could get reward without solving the task, then prove your fixes work.\n\nSteps:\n1. List candidate exploits (test editing, special-casing, output format tricks, grader parsing bugs, timeouts treated as passes).\n2. Write a scripted cheating policy for each and run it through the grader.\n3. Fix the grader or environment; rerun the cheats; then run a short RL training and scan rollouts for new exploits (pattern search plus reading).\n4. Record which exploits the trained policy actually found.\n\nSuccess looks like: Every scripted cheat gets zero reward after the fixes, a short RL run shows no new exploit in sampled transcripts, and the audit is written so a teammate can rerun it on the next environment.",
     "pattern": "Build this: A reward-hacking audit of your own environment"
   }

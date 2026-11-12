@@ -267,6 +267,17 @@ export function Drill({ deckSlug }: DrillProps) {
     );
   }
 
+  function bookRunOptions() {
+    const isBook = deckDef?.kind === "book";
+    return {
+      keepOrder: isBook,
+      // After a finished pass, a book continues at its first card that is not learned yet.
+      pickStart: isBook
+        ? (order: string[]) => order.find((id) => !isLearned(memory[id]))
+        : undefined,
+    };
+  }
+
   function resetCardView() {
     setDraft("");
     setRevealed(false);
@@ -296,7 +307,7 @@ export function Drill({ deckSlug }: DrillProps) {
       deckSlug,
       next,
       nextPool.map((question) => question.id),
-      { keepOrder: deckDef?.kind === "book" },
+      bookRunOptions(),
     );
     const byId = new Map(nextPool.map((question) => [question.id, question]));
     const ordered = order
@@ -355,7 +366,7 @@ export function Drill({ deckSlug }: DrillProps) {
       deckSlug,
       chapterFilter,
       fromPool.map((question) => question.id),
-      { keepOrder: deckDef?.kind === "book" },
+      bookRunOptions(),
     );
     const byId = new Map(fromPool.map((question) => [question.id, question]));
     resetCardView();
@@ -425,7 +436,7 @@ export function Drill({ deckSlug }: DrillProps) {
                 className="flex w-full flex-col gap-2 rounded-lg border border-border bg-card p-4 text-left"
               >
                 <p className="font-mono text-xs text-stone-500">
-                  {question.chapter} · {question.id}
+                  {question.chapter}
                 </p>
                 <h2 className="text-sm leading-6 font-medium text-stone-900 whitespace-pre-wrap">
                   <ProtocolText plain={plainText} text={question.prompt} />
@@ -503,6 +514,7 @@ export function Drill({ deckSlug }: DrillProps) {
   }
 
   const card = memory[current.id];
+  const currentPosition = pool.findIndex((question) => question.id === current.id) + 1;
 
   return (
     <div className="mx-auto grid w-full min-w-0 max-w-[60rem] grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,42rem)_17rem] lg:justify-center lg:gap-8">
@@ -517,7 +529,8 @@ export function Drill({ deckSlug }: DrillProps) {
           </Button>
         </div>
         <p className="font-mono text-xs text-stone-500">
-          {current.chapter} · {current.id}
+          {currentPosition > 0 ? `Question ${currentPosition} of ${pool.length}` : null}
+          {current.chapter ? ` · ${current.chapter}` : ""}
           {card?.seen ? ` · seen ${card.seen}` : " · new"}
           {isGraduated(card) ? " · light review" : isLearned(card) ? " · got it" : ""}
         </p>
@@ -624,6 +637,7 @@ export function Drill({ deckSlug }: DrillProps) {
           learned={stats.learned}
           total={stats.total}
           remaining={remaining}
+          books={deckDef.books}
           onReset={resetDeck}
           onEndSession={endSession}
         />

@@ -11,6 +11,7 @@ type DrillSessionCardProps = {
   learned: number;
   total: number;
   remaining: number;
+  books?: string[];
   onReset: () => void;
   onEndSession?: () => void;
 };
@@ -23,6 +24,7 @@ export function DrillSessionCard({
   learned,
   total,
   remaining,
+  books,
   onReset,
   onEndSession,
 }: DrillSessionCardProps) {
@@ -58,6 +60,16 @@ export function DrillSessionCard({
         <StudyProgressBar label="Learned" learned={learned} total={total} isLabelHidden hasValueLabel={false} />
         <p className="ui-dsc__note">{remaining} still in rotation</p>
       </div>
+      {books && books.length > 0 ? (
+        <div className="ui-dsc__books">
+          <p className="ui-dsc__books-label">Books</p>
+          <ul>
+            {books.map((book) => (
+              <li key={book}>{book}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <footer className="ui-dsc__foot">
         {onEndSession ? (
           <Button type="button" size="sm" onClick={onEndSession}>
@@ -141,6 +153,25 @@ const css = /* css */ `
   font-size: 12px;
   line-height: 16px;
   color: var(--ui-dsc-muted);
+}
+.ui-dsc__books {
+  padding: 12px 16px;
+  border-top: 0.5px solid var(--ui-dsc-line);
+}
+.ui-dsc__books-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ui-dsc-muted);
+}
+.ui-dsc__books ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ui-dsc-text);
 }
 .ui-dsc__foot {
   display: flex;

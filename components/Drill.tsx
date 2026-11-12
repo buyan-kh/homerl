@@ -156,6 +156,7 @@ function ChapterFilter({
 
 export function Drill({ deckSlug }: DrillProps) {
   const deckDef = getDeck(deckSlug);
+  const plainText = deckDef?.notation === "plain";
   const questions = deckDef?.questions ?? [];
   const chapters = useMemo(() => uniqueChapters(questions), [questions]);
 
@@ -427,14 +428,14 @@ export function Drill({ deckSlug }: DrillProps) {
                   {question.chapter} · {question.id}
                 </p>
                 <h2 className="text-sm leading-6 font-medium text-stone-900 whitespace-pre-wrap">
-                  <ProtocolText text={question.prompt} />
+                  <ProtocolText plain={plainText} text={question.prompt} />
                 </h2>
                 <p className="text-sm leading-6 whitespace-pre-wrap text-stone-800">
-                  <ProtocolText text={question.answer} />
+                  <ProtocolText plain={plainText} text={question.answer} />
                 </p>
                 {question.pattern ? (
                   <p className="border-t border-stone-200 pt-2 text-sm leading-6 text-stone-600">
-                    Pattern to remember: <ProtocolText text={question.pattern} />
+                    Pattern to remember: <ProtocolText plain={plainText} text={question.pattern} />
                   </p>
                 ) : null}
               </article>
@@ -511,7 +512,7 @@ export function Drill({ deckSlug }: DrillProps) {
           {isGraduated(card) ? " · light review" : isLearned(card) ? " · got it" : ""}
         </p>
         <h1 className="text-lg leading-7 font-medium text-stone-900 whitespace-pre-wrap">
-          <ProtocolText text={current.prompt} />
+          <ProtocolText plain={plainText} text={current.prompt} />
         </h1>
 
         <form
@@ -561,12 +562,12 @@ export function Drill({ deckSlug }: DrillProps) {
               className="homerl-reveal__item text-base leading-7 whitespace-pre-wrap text-stone-800"
               style={{ animationDelay: "70ms" }}
             >
-              <ProtocolText text={current.answer} />
+              <ProtocolText plain={plainText} text={current.answer} />
             </p>
             {current.answerImage ? (
               <img
                 src={current.answerImage}
-                alt="Official attack diagram from the review solutions"
+                alt={plainText ? "Study diagram for this card" : "Official attack diagram from the review solutions"}
                 className="homerl-reveal__item h-auto w-full max-w-2xl rounded-md border border-stone-200 bg-white"
                 style={{ animationDelay: "140ms" }}
               />
@@ -576,7 +577,7 @@ export function Drill({ deckSlug }: DrillProps) {
                 className="homerl-reveal__item border-t border-stone-200 pt-3 text-sm leading-6 text-stone-600"
                 style={{ animationDelay: "140ms" }}
               >
-                Pattern to remember: <ProtocolText text={current.pattern} />
+                Pattern to remember: <ProtocolText plain={plainText} text={current.pattern} />
               </p>
             ) : null}
             <div className="homerl-reveal__item" style={{ animationDelay: "210ms" }}>

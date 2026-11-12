@@ -8,6 +8,8 @@ import "katex/dist/katex.min.css";
 type ProtocolTextProps = {
   text: string;
   className?: string;
+  /** Render the text as-is, with no notation-to-math conversion. */
+  plain?: boolean;
 };
 
 function renderLatex(latex: string, displayMode: boolean) {
@@ -22,7 +24,8 @@ function renderLatex(latex: string, displayMode: boolean) {
   }
 }
 
-export function ProtocolText({ text, className }: ProtocolTextProps) {
+export function ProtocolText({ text, className, plain = false }: ProtocolTextProps) {
+  if (plain) return <span className={className}>{text}</span>;
   const segments = splitProtocolNotation(text);
 
   return (

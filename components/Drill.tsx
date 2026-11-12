@@ -537,6 +537,13 @@ export function Drill({ deckSlug }: DrillProps) {
         <h1 className="text-lg leading-7 font-medium text-stone-900 whitespace-pre-wrap">
           <ProtocolText plain={plainText} text={current.prompt} />
         </h1>
+        {current.promptImage ? (
+          <img
+            src={current.promptImage}
+            alt={current.promptImageAlt ?? "Diagram for this question"}
+            className="h-auto w-full max-w-2xl rounded-md border border-stone-200 bg-white"
+          />
+        ) : null}
 
         <form
           className="flex w-full flex-col items-start gap-3"
@@ -590,7 +597,10 @@ export function Drill({ deckSlug }: DrillProps) {
             {current.answerImage ? (
               <img
                 src={current.answerImage}
-                alt={plainText ? "Study diagram for this card" : "Official attack diagram from the review solutions"}
+                alt={
+                  current.answerImageAlt ??
+                  (plainText ? "Study diagram for this card" : "Official attack diagram from the review solutions")
+                }
                 className="homerl-reveal__item h-auto w-full max-w-2xl rounded-md border border-stone-200 bg-white"
                 style={{ animationDelay: "140ms" }}
               />

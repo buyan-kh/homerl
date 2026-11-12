@@ -8,6 +8,11 @@ export type Question = {
   prompt: string;
   answer: string;
   answerImage?: string;
+  /** Alt text for answerImage. */
+  answerImageAlt?: string;
+  /** Diagram shown with the prompt, before the answer is revealed. */
+  promptImage?: string;
+  promptImageAlt?: string;
   pattern?: string;
 };
 

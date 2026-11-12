@@ -23,6 +23,7 @@ function identToLatex(token: string): string {
     return `\\{${braceInnerToLatex(encrypted[1])}\\}_{\\mathit{${encrypted[2]}}}`;
   }
 
+  if (t === "KKDC") return "K_{KDC}";
   if (/^K[A-Z]{2}$/.test(t)) return `K_{${t.slice(1)}}`;
   if (/^[RKTSh][A-Z]$/.test(t)) return `${t[0]}_{${t[1]}}`;
   if (KNOWN_NAMES.test(t)) return `\\mathit{${t}}`;
@@ -45,7 +46,7 @@ export function protocolFragmentToLatex(prefix: string | undefined, brace: strin
 }
 
 const AUTO_MATH =
-  /E\((?:[^()]|\([^()]*\))*\)|h\((?:[^()]|\([^()]*\))*\)|\{[^{}]+\}(?:_)?[A-Za-z][A-Za-z0-9]*|\[[^\[\]]+\](?:_)?[A-Za-z][A-Za-z0-9]*|\bK[A-Z]{2}\b|\b[RKTS][A-Z]\b|\d+\^\{-1\}|\d+\^{-1}/g;
+  /E\((?:[^()]|\([^()]*\))*\)|h\((?:[^()]|\([^()]*\))*\)|\{[^{}]+\}(?:_)?[A-Za-z][A-Za-z0-9]*|\[[^\[\]]+\](?:_)?[A-Za-z][A-Za-z0-9]*|\bKKDC\b|\bK[A-Z]{2}\b|\b[RKTS][A-Z]\b|\d+\^\{-1\}|\d+\^{-1}/g;
 
 function autoFragmentToLatex(fragment: string): string {
   const enc = fragment.match(/^E\((.*)\)$/);

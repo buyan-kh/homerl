@@ -4,6 +4,10 @@ import { REVIEW_VARIANT_A } from "@/data/review-variant-a";
 import { REVIEW_VARIANT_B } from "@/data/review-variant-b";
 import { REVIEW_VARIANT_C } from "@/data/review-variant-c";
 import { STAMP_BOOK_CH69 } from "@/data/stamp-book-ch69";
+import { STAMP_BOOK_CH1012 } from "@/data/stamp-book-ch1012";
+import { CS166_FINAL_REVIEW } from "@/data/cs166-final-review";
+import { FINAL_VARIANT_A } from "@/data/final-variant-a";
+import { FINAL_VARIANT_B } from "@/data/final-variant-b";
 import { HW_ASSIGNMENT_6 } from "@/data/hw-assignment-6";
 import { HW_ASSIGNMENT_7 } from "@/data/hw-assignment-7";
 import { HW_ASSIGNMENT_8 } from "@/data/hw-assignment-8";
@@ -46,6 +50,42 @@ export type CourseDefinition = {
 };
 
 const CS166_SECTIONS: DeckDefinition[] = [
+  {
+    slug: "cs166/final",
+    courseSlug: "cs166",
+    section: "final",
+    title: "Final Review",
+    kind: "drill",
+    description: "Stamp's final review with his official solutions: SSL, IKE, Kerberos, GSM, malware detection, heap and stack overflows, serial number patching, and linearization. Code shown in the cards.",
+    questions: CS166_FINAL_REVIEW,
+  },
+  {
+    slug: "cs166/final-variant-a",
+    courseSlug: "cs166",
+    section: "final-variant-a",
+    title: "Final variant A",
+    kind: "drill",
+    description: "Same shape as the final review with different protocols and code from Stamp's Ch 10-12 slides: SSH, IKE identities and cookies, Kerberos login, GSM replay, stack frames, and linearization math.",
+    questions: FINAL_VARIANT_A,
+  },
+  {
+    slug: "cs166/final-variant-b",
+    courseSlug: "cs166",
+    section: "final-variant-b",
+    title: "Final variant B",
+    kind: "drill",
+    description: "Second altered final: SSL connections, IPsec modes and AH vs ESP, plausible deniability, WEP, GSM keys, race conditions, opaque predicates, and the security testing math.",
+    questions: FINAL_VARIANT_B,
+  },
+  {
+    slug: "cs166/book-10-12",
+    courseSlug: "cs166",
+    section: "book-10-12",
+    title: "Stamp Chapters 10 to 12",
+    kind: "book",
+    description: "Study cards from Stamp's official Ch 10-12 slides: real-world protocols (SSH, SSL, IPsec, Kerberos, WEP, GSM), software flaws and malware, and insecurity in software. Filter by chapter.",
+    questions: STAMP_BOOK_CH1012,
+  },
   {
     slug: "cs166/review",
     courseSlug: "cs166",
@@ -235,7 +275,7 @@ export const COURSES: Record<string, CourseDefinition> = {
   cs166: {
     slug: "cs166",
     title: "CS 166",
-    description: "Information Security. Sections for Test 2 practice now; later you can add a Final review here too.",
+    description: "Information Security. Final review sections and Stamp Chapters 10 to 12, plus the Test 2 practice sections.",
     sections: CS166_SECTIONS,
   },
   llm: {

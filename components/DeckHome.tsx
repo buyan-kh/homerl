@@ -27,7 +27,7 @@ export function DeckHome() {
         </Text>
       </Stack>
       <Divider />
-      <Grid columns={{ minWidth: 280, max: 3 }} gap={4} width="100%" align="stretch">
+      <Grid columns={{ minWidth: 280, max: 3, repeat: "fit" }} gap={4} width="100%" align="start">
         {courses.map((course) => (
           <ClickableCard
             key={course.slug}
@@ -37,7 +37,6 @@ export function DeckHome() {
             padding={6}
             elevation="med"
             width="100%"
-            height="100%"
             className="bg-(--color-accent)! text-(--color-on-accent)! p-4! sm:p-(--spacing-6)!"
           >
             <Stack gap={4}>

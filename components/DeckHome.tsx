@@ -2,6 +2,7 @@
 
 import { ClickableCard } from "@astryxdesign/core/ClickableCard";
 import { Divider } from "@astryxdesign/core/Divider";
+import { Grid } from "@astryxdesign/core/Grid";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack, Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
@@ -15,8 +16,8 @@ export function DeckHome() {
   const courses = listCourses();
 
   return (
-    <Stack gap={5} width="100%" maxWidth="40rem">
-      <Stack gap={2}>
+    <Stack gap={5} width="100%">
+      <Stack gap={2} maxWidth="40rem">
         <Heading level={1} textWrap="balance">
           Classes
         </Heading>
@@ -26,7 +27,7 @@ export function DeckHome() {
         </Text>
       </Stack>
       <Divider />
-      <Stack gap={4} width="100%">
+      <Grid columns={{ minWidth: 280, max: 3 }} gap={4} width="100%" align="stretch">
         {courses.map((course) => (
           <ClickableCard
             key={course.slug}
@@ -36,6 +37,7 @@ export function DeckHome() {
             padding={6}
             elevation="med"
             width="100%"
+            height="100%"
             className="bg-(--color-accent)! text-(--color-on-accent)! p-4! sm:p-(--spacing-6)!"
           >
             <Stack gap={4}>
@@ -60,7 +62,7 @@ export function DeckHome() {
             </Stack>
           </ClickableCard>
         ))}
-      </Stack>
+      </Grid>
     </Stack>
   );
 }

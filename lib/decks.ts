@@ -23,6 +23,7 @@ import { LLM_P6_EVALS } from "@/data/llm-p6-evals";
 import { LLM_P7_INTERPRETABILITY } from "@/data/llm-p7-interpretability";
 import { LLM_P8_CAPSTONE } from "@/data/llm-p8-capstone";
 import { LEETCODE_LEVELS } from "@/data/leetcode/meta";
+import { CS156_BAYES_NETS_HMM } from "@/data/cs156-bayes-nets-hmm";
 import type { Question } from "./types";
 
 export type DeckKind = "drill" | "book" | "code";
@@ -271,12 +272,32 @@ const LEETCODE_SECTIONS: DeckDefinition[] = LEETCODE_LEVELS.map((level) => ({
   questions: [],
 }));
 
+
+const CS156_SECTIONS: DeckDefinition[] = [
+  {
+    slug: "cs156/bayes-nets-hmm",
+    courseSlug: "cs156",
+    section: "bayes-nets-hmm",
+    title: "Bayes Nets and HMMs",
+    kind: "drill",
+    notation: "plain",
+    description: "Independence in Bayes nets using active and inactive paths, inference by enumeration on the alarm network, Markov chains, the mini-forward algorithm, stationary distributions, and hidden Markov models.",
+    questions: CS156_BAYES_NETS_HMM,
+  },
+];
+
 export const COURSES: Record<string, CourseDefinition> = {
   cs166: {
     slug: "cs166",
     title: "CS 166",
     description: "Information Security. Final review sections and Stamp Chapters 10 to 12, plus the Test 2 practice sections.",
     sections: CS166_SECTIONS,
+  },
+  cs156: {
+    slug: "cs156",
+    title: "CS 156",
+    description: "Intro to AI. Inference in Bayes nets, Markov chains, and hidden Markov models.",
+    sections: CS156_SECTIONS,
   },
   llm: {
     slug: "llm",
@@ -293,7 +314,7 @@ export const COURSES: Record<string, CourseDefinition> = {
 };
 
 export const DECKS: Record<string, DeckDefinition> = Object.fromEntries(
-  [...CS166_SECTIONS, ...LLM_SECTIONS, ...LEETCODE_SECTIONS].map((section) => [section.slug, section]),
+  [...CS166_SECTIONS, ...CS156_SECTIONS, ...LLM_SECTIONS, ...LEETCODE_SECTIONS].map((section) => [section.slug, section]),
 );
 
 export function getCourse(slug: string): CourseDefinition | undefined {

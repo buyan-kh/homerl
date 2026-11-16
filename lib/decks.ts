@@ -24,6 +24,7 @@ import { LLM_P7_INTERPRETABILITY } from "@/data/llm-p7-interpretability";
 import { LLM_P8_CAPSTONE } from "@/data/llm-p8-capstone";
 import { LEETCODE_LEVELS } from "@/data/leetcode/meta";
 import { CS156_BAYES_NETS_HMM } from "@/data/cs156-bayes-nets-hmm";
+import { CS156_CLASS_22_POLL } from "@/data/cs156-class-22-poll";
 import type { Question } from "./types";
 
 export type DeckKind = "drill" | "book" | "code";
@@ -274,6 +275,16 @@ const LEETCODE_SECTIONS: DeckDefinition[] = LEETCODE_LEVELS.map((level) => ({
 
 
 const CS156_SECTIONS: DeckDefinition[] = [
+  {
+    slug: "cs156/class-22-poll",
+    courseSlug: "cs156",
+    section: "class-22-poll",
+    title: "Class 22 Poll (8 questions)",
+    kind: "drill",
+    notation: "plain",
+    description: "The 8 official Class 22 iClicker questions, in poll order, from the Inference in Bayes Nets / Probabilistic Reasoning Over Time lecture.",
+    questions: CS156_CLASS_22_POLL,
+  },
   {
     slug: "cs156/bayes-nets-hmm",
     courseSlug: "cs156",

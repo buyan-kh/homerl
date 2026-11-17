@@ -22,6 +22,7 @@ import { LLM_RL } from "@/data/llm-rl";
 import { LLM_P6_EVALS } from "@/data/llm-p6-evals";
 import { LLM_P7_INTERPRETABILITY } from "@/data/llm-p7-interpretability";
 import { LLM_P8_CAPSTONE } from "@/data/llm-p8-capstone";
+import { LLM_MULTIPLE_CHOICE } from "@/data/llm-multiple-choice";
 import { LEETCODE_LEVELS } from "@/data/leetcode/meta";
 import { CS156_BAYES_NETS_HMM } from "@/data/cs156-bayes-nets-hmm";
 import { CS156_CLASS_22_POLL } from "@/data/cs156-class-22-poll";
@@ -163,6 +164,16 @@ const CS166_SECTIONS: DeckDefinition[] = [
 ];
 
 const LLM_SECTIONS: DeckDefinition[] = [
+  {
+    slug: "llm/multiple-choice",
+    courseSlug: "llm",
+    section: "multiple-choice",
+    title: "Multiple Choice",
+    kind: "drill",
+    notation: "plain",
+    description: "Four-option quizzes for every idea in the LLM track, except the Build this project cards, which stay in the original sections. Questions and options shuffle each run. Filter by phase, then go through the tests until the ideas stick.",
+    questions: LLM_MULTIPLE_CHOICE,
+  },
   {
     slug: "llm/p1-foundations",
     courseSlug: "llm",

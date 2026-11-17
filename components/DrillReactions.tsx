@@ -11,6 +11,8 @@ type DrillReactionsProps = {
   onMissed: () => void;
   onCommentSave: (note: string) => void;
   onGotIt: () => void;
+  /** Hide missed / got-it when the card already graded itself, as in multiple choice. */
+  showGrade?: boolean;
 };
 
 export function DrillReactions({
@@ -21,6 +23,7 @@ export function DrillReactions({
   onMissed,
   onCommentSave,
   onGotIt,
+  showGrade = true,
 }: DrillReactionsProps) {
   const formId = useId();
   const [commentOpen, setCommentOpen] = useState(false);
@@ -56,8 +59,8 @@ export function DrillReactions({
         {css}
       </style>
       <MotionDirections />
-      <h3 className="text-sm font-medium text-foreground">How did you do?</h3>
-      <div className="ui-drill-rbc" role="group" aria-label="Grade this card">
+      {showGrade ? <h3 className="text-sm font-medium text-foreground">How did you do?</h3> : null}
+      <div className="ui-drill-rbc" role="group" aria-label={showGrade ? "Grade this card" : "Card reactions"}>
         <button
           type="button"
           className="ui-drill-rbc__btn"
@@ -81,6 +84,7 @@ export function DrillReactions({
         >
           <IconHeart />
         </button>
+        {showGrade ? (
         <button
           type="button"
           className="ui-drill-rbc__btn"
@@ -97,8 +101,9 @@ export function DrillReactions({
         >
           <IconCheck />
         </button>
+        ) : null}
       </div>
-      {canGrade ? (
+      {canGrade && showGrade ? (
         <button
           type="button"
           className="text-xs text-muted-foreground underline-offset-2 hover:underline"

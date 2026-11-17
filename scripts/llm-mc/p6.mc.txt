@@ -1,0 +1,174 @@
+=== llm-p6-01
+W An lm-eval task is usually a YAML file that names the dataset, how to turn a doc into a prompt (doc_to_text), the target or choices, the output type (loglikelihood vs generate_until), generation settings, metrics, filters, and a version. If those fields disagree, scores are not comparable.
++ A YAML task with dataset, doc_to_text, doc_to_target or doc_to_choice, output_type, generation_kwargs, metric_list, filters, and a version.
+- A Python trainer class that fine-tunes the model on the benchmark, then reports training accuracy as the score.
+- Only a Hugging Face dataset name. The harness invents the prompt and metric, so YAML is never needed.
+- A JSON dump of model weights plus a human rubric, with no doc_to_text or output_type.
+
+=== llm-p6-02
+W Multiple-choice loglikelihood scores each option and picks the argmax. acc is raw, acc_norm divides by byte length so longer options are not favored. generate_until makes the model write text, then you extract an answer and exact-match it. Always report which mode you used, because the numbers are not the same thing.
++ MC: pick the option with the highest log-prob (acc raw, acc_norm length-normalized). Generate: write text, extract, exact match. Report the mode.
+- acc_norm is accuracy after fine-tuning on the test set. generate_until is only used for loglikelihood tasks.
+- Both modes just measure exact string match of the first token. Length normalization is illegal in the harness.
+- loglikelihood multiple choice generates a free-form essay, and generate_until picks among A/B/C/D letters only.
+
+=== llm-ev-01
+W A useful benchmark is valid (it measures the skill you claim), not already saturated, low-noise with enough items, correctly labeled, as uncontaminated as you can check, and cheap enough to rerun. A flashy but noisy or leaky board wastes research time.
++ Valid, not saturated, low noise, correctly labeled, uncontaminated, and cheap enough to rerun.
+- Saturated, high-variance, and slightly contaminated is fine if the leaderboard is popular.
+- The only property that matters is that the benchmark is large, even if labels are random.
+- A good benchmark should be secret even from the authors, with no documented grading rule.
+
+=== llm-ev-02
+W For a binomial score, SE is sqrt(p(1-p)/n). At p=0.6 and n=500, SE is about 0.022, so a 95% interval is roughly plus or minus 4 points. A 2-point gap is well inside that noise. Use a paired test on the same items when you compare two models.
++ SE = sqrt(p(1-p)/n). At n=500 that is about plus or minus 4 points, so a 2-point gain is not meaningful on its own. Use a paired test.
+- The 95% interval at n=500 is plus or minus 0.2 points, so a 2-point gain is obviously real.
+- Confidence intervals do not apply to accuracy. You only need the point estimate.
+- With n=500, any gap larger than 0.1 points is significant, so no paired test is needed.
+
+=== llm-ev-03
+W Public benchmarks get into train sets, people tune to them, and models improve, so scores pile up near the ceiling. The usual lifecycle is: release a hard set, watch it saturate, then add a harder tier and keep a private or frequently refreshed split so you still have headroom.
++ Public benchmarks saturate. Plan for harder tiers and a private or refreshed split so you still have signal.
+- Once a benchmark is public it stays hard forever, because models cannot memorize tests.
+- Saturation means the task was invalid. You should delete the benchmark rather than add a harder split.
+- The usual lifecycle is to never update a benchmark, so old papers stay comparable even at 99.9%.
+
+=== llm-ev-04
+W Prompt format, few-shot packing, and minor wording can move scores by several points. The responsible move is to fix a public harness, report the exact template and version, and not cherrypick the format that flatters your model after seeing the scores.
++ Format can move scores a lot. Fix and publish the harness, and do not pick a template after looking at the numbers.
+- Prompt format never changes accuracy by more than 0.1 points, so you can leave it undocumented.
+- You should search over prompts on the test set and report the best one, which is the official protocol.
+- Only the system prompt matters. The rest of the template can stay private.
+
+=== llm-ev-05
+W Look for n-gram or item overlap with the train corpus, memorization probes (can the model continue the test item verbatim), a gap versus a fresh equivalent set, and splits before vs after a training cutoff. No single test is perfect, so you combine them and stay humble about "uncontaminated" claims.
++ Use overlap checks, memorization probes, gaps on fresh equivalent items, and pre/post cutoff splits. Combine evidence.
+- If the model is not named in the paper's train mix, contamination is impossible and no check is needed.
+- The only valid test is to ask the model whether it has seen the question. Trust the yes/no answer.
+- Contamination can only be detected by retraining from scratch without the web, which is the required protocol.
+
+=== llm-ev-06
+W Public GitHub issues and pull requests, including tests and fixes, often appear in pretraining crawls. A SWE-style env can then reward memorizing a known patch. Prefer tasks after your data cutoff, private or licensed repos, or synthetic tasks with hidden tests that were never posted.
++ Public fixes leak into crawls. Prefer post-cutoff, private, or synthetic tasks with hidden tests.
+- GitHub data is never in pretraining, so SWE benches are automatically clean.
+- Contamination is only a risk if you train on the eval split itself, not if the repo was public.
+- The fix is to include the official patch in the prompt, so the model cannot be accused of memorizing it.
+
+=== llm-ev-07
+W The unbiased pass@k estimator is 1 - C(n-c, k)/C(n, k) when n-c >= k, else 1. You need n > k samples. For n=10 and c=3, pass@1 is 3/10 = 0.3. pass@5 is 1 - C(7,5)/C(10,5) = 1 - 21/252 = 0.917. Do not just take "best of k" from a single draw without the combination formula when n is larger than k.
++ pass@k = 1 - C(n-c, k)/C(n, k). For n=10, c=3, pass@1 is 0.3 and pass@5 is 1 - 21/252 ≈ 0.917.
+- pass@k is c/n for every k, so pass@1 and pass@5 are both 0.3.
+- pass@5 is min(1, 5 * 3/10) = 1.0, and pass@1 is 1/10 because only one sample counts.
+- The unbiased estimator is C(c, k)/C(n, k). For these numbers pass@5 is undefined because c < 5.
+
+=== llm-ev-08
+W pass@k is coverage: the chance that at least one of k samples is correct. maj@k is majority vote among k samples. pass^k is the chance that all k are correct, a reliability measure. Use pass@k to see if the solution is in the support, maj@k for a single submitted answer, and pass^k when every attempt must work.
++ pass@k measures coverage, maj@k measures voting, and pass^k measures reliability (all k correct).
+- All three names are synonyms for accuracy of a single greedy decode.
+- pass@k is majority vote, maj@k is "all correct," and pass^k is coverage.
+- maj@k is only defined for k=1, and pass^k is the same as perplexity.
+
+=== llm-ev-09
+W METR's time horizon is the human task length at which the model still succeeds 50% of the time. It turns a suite of tasks with human time estimates into one "how long a task can it handle" number, which is meant to track longer-horizon agent skill, not a single exam score.
++ The human-equivalent task length that the model completes 50% of the time.
+- The wall-clock time the model spends on each item, averaged, regardless of success.
+- The longest context window in tokens, converted to reading time at 200 words per minute.
+- The time until the benchmark saturates, which is a property of the dataset, not the model.
+
+=== llm-ev-10
+W Judges favor the first or last answer (position), prefer longer or more fluent text, inherit their own model family biases, and can be unstable across versions. Mitigate by swapping order, length-controlling, pinning and varying the judge, and calibrating against human labels on a sample.
++ Position, length, and family biases, plus judge drift. Swap order, control length, pin and vary the judge, and calibrate on humans.
+- Model judges are unbiased if the temperature is 0, so no mitigations are needed.
+- The only bias is random noise, which you fix by using a single fixed judge forever and never swapping order.
+- You should always tell the judge which answer is yours, so it can be more accurate.
+
+=== llm-ev-11
+W If a deterministic checker exists (math, tests, a schema), use it. Judges are for truly open-ended quality, and even then you want a tight binary rubric, more than one judge, and a human calibration set. Do not use a judge as a gold reward if you can grade the outcome exactly.
++ Use a deterministic check when you can. Reach for a judge only for truly open-ended work, with a tight rubric and human calibration.
+- Always prefer a model judge, even for math and unit tests, because it is more flexible than a checker.
+- Never use a judge for any task, including creative writing, because only exact string match is valid.
+- A judge is acceptable as the only gold reward at RL scale, with no rubric and no human checks.
+
+=== llm-ev-12
+W Arena leaderboards measure human preference in a particular UI, which mixes capability with style, verbosity, and sycophancy, and they can be gamed with marketing or specialized tuning. They are useful preference data, not a pure capability ranking. Read them with that caveat.
++ Arenas measure preference and style in a particular UI, and they can be gamed. They are not a pure capability ranking.
+- Arena votes are a contamination-free capability exam, more reliable than any private test.
+- Human preference is identical to accuracy, so an arena win proves the model is better at math and code too.
+- The only pitfall is low turnout. Once there are enough votes, style and gaming cannot affect the rank.
+
+=== llm-ip-14
+W An 14-point gap under the "same" setup is usually a hidden difference in template, few-shot packing, max tokens, stop strings, or answer parsing. Diff the raw prompts and a few model outputs first before you blame seeds or hardware. Those string-level diffs usually explain it.
++ Diff raw prompts and outputs on a few items. The cause is usually the template, max tokens, stop strings, or parsing.
+- The collaborator's GPU is slower, which lowers accuracy. Buy matching hardware and the scores will match.
+- This is normal seed noise at this accuracy, so no investigation is needed.
+- Retrain both models from scratch before looking at prompts. Harness differences cannot cause a 14-point gap.
+
+=== llm-ev-13
+W Pin a required answer format, extract the final value with a strict parser, normalize (aliases, fractions, units), then check equivalence, not just raw strings. Measure the grader's own error on a labeled sample, including pretty-but-wrong and ugly-but-right cases, and fix the grader before you trust the eval.
++ Fix the format, extract, normalize, check mathematical equivalence, and measure the grader's own error.
+- Accept any boxed text as correct if it contains a number, and skip equivalence checks to stay generous.
+- Only do exact string match on the whole model output, with no extraction or normalization.
+- Let a language model grade math, because symbolic equivalence is too brittle for research.
+
+=== llm-ev-14
+W A coding grader that will face RL pressure needs a sandbox, hidden and randomized tests, checks that the submission does not tamper with the tests, fail-closed timeouts and crashes, and oracle/null checks that a known-good and a known-bad solution get the right marks. Public tests alone will be memorized or patched around.
++ Sandbox, hidden and randomized tests, tamper checks, fail-closed errors, plus oracle and null checks.
+- Grade by reading the code with a model judge and skip hidden tests, which are unfair to the policy.
+- Run tests on the researcher's laptop with network on, and show all tests in the prompt so the agent can adapt.
+- If it compiles, mark it correct. Runtime tests are too flaky to use under RL.
+
+=== llm-ev-15
+W The transcript is the agent's story, and it can claim success without the world being fixed. Grade the actual final state: files, test results, database, or environment flags. That is the same idea as "unit tests, not a student essay about the tests."
++ Grade the final world state, not the agent's description of what it did.
+- Grade the transcript for confident language, which is a reliable proxy for a correct environment.
+- The final state is private, so the only fair grade is whether the agent said "done."
+- You should grade both equally and pick the higher one, so a good write-up can override failed tests.
+
+=== llm-ev-16
+W Measure the grader on outputs from the current policy, not just a clean dev set: precision, recall, and especially false positives, because RL will amplify any false reward. If the policy can get reward without really succeeding, the grader is not ready to be a training reward.
++ Measure grader precision on policy outputs. False positives will be amplified by RL.
+- If the grader is 90% accurate on the original hand-written set, it is automatically safe as an RL reward.
+- Only measure recall. False positives are harmless because the policy still has to write something.
+- You cannot measure a grader until after RL finishes, so ship it first and audit later.
+
+=== llm-ev-17
+W SWE-bench asks for patches that must pass a repo's tests; Verified is a human-filtered subset with clearer tasks. tau-bench measures following a domain policy while talking to a simulated user and tools. Terminal-Bench measures end-to-end shell or terminal tasks. They are not interchangeable "agent scores."
++ SWE-bench: patches vs repo tests (Verified is a cleaned subset). tau-bench: policy-following with a simulated user. Terminal-Bench: shell tasks.
+- All four are aliases for MMLU-style multiple choice, just with different names.
+- SWE-bench grades only the natural-language plan, tau-bench grades math, and Terminal-Bench is a typing-speed test.
+- Verified means the model was verified, not the tasks. tau-bench is just SWE-bench on private repos.
+
+=== llm-ev-18
+W Agentic scores mix the model, the scaffold (tools, prompting, retry loops, memory), and the budget (turns, tokens, wall time, dollars). The same model can look very different under two scaffolds. Every result should report all three, or the comparison is not fair.
++ An agent score is model plus scaffold plus budget. Report all three, because any one of them can move the number.
+- Only the model matters. Scaffold and budget are implementation details that should be left out of the paper.
+- If two papers use the same benchmark name, their numbers are automatically comparable.
+- You should hide the budget so reviewers cannot say you just spent more tokens.
+
+=== llm-ev-19
+W Agentic evals are noisy: sampling, tool timing, flaky tests, and unpinned dependencies. Repeat runs, estimate the variance, test the oracle itself for flakiness, and pin models, tools, seeds, and container versions. Do not treat a one-run agent score as exact.
++ Repeat runs, check that the oracle is not flaky, and pin tools, seeds, and environments.
+- Run once at temperature 1 and report the number to two decimal places, with no repeats.
+- Nondeterminism is a reason to skip pinning, so the eval reflects "the real world."
+- If a test is flaky, mark those tasks correct, because the agent should not be punished for the env.
+
+=== llm-ev-26
+W For RL environments, hold out whole task families, not random items from the same family, or the policy will memorize the family pattern. Also watch an external eval you never train on. Item-level shuffles are not enough if all items share the same trick.
++ Hold out whole task families, and watch an external eval you never train on. Do not just shuffle items from the same family.
+- Randomly split items 50/50 from every family, which is enough to measure generalization.
+- Train and eval on the exact same tasks, because RL should be allowed to memorize the env.
+- External evals are unfair. The only valid number is training reward.
+
+=== llm-p6-03
+W A research-skill eval with a deterministic grader needs checkable artifacts (a number, a plot file, a repo test), a frozen container, tolerances that come from seed variance, and validation against a known-good reference plus known cheats (hardcoded answers, looking at the answer key). "The report looks nice" is not a grader.
++ Checkable outputs, a frozen container, graders with tolerances from seed variance, and checks against a reference and against cheats.
+- Have a language model grade the paper's prose quality, with no numeric tolerances or containers.
+- Ask the model whether it reproduced the paper, and use yes/no as the official score.
+- Allow network and unpinned packages, so the model can fetch the official results and paste them.
+
+=== llm-ev-29
+W A complete design names the skill, the task set, the interface the model or agent gets, a validated grader, metrics with confidence intervals, a list of likely hacks, and train/eval splits. If any of those is missing, you do not yet have a serious eval or RL environment for skill X.
++ Skill, tasks, interface, a validated grader, metrics with CIs, likely hacks, and splits.
+- A catchy name and a leaderboard are enough; the grader can be filled in later.
+- Only the reward function matters. Tasks, interface, and hacks do not need to be specified up front.
+- The design should stay secret from the team building the env, including the skill definition.

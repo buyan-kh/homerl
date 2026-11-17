@@ -1,0 +1,624 @@
+=== llm-rl-01
+W An MDP is (S, A, P, R, gamma, rho_0): states, actions, transition kernel, reward, discount, and start distribution. The objective is the expected discounted return of trajectories sampled from the policy, not a supervised next-token loss.
++ (S, A, P, R, gamma, rho_0). Maximize the expected discounted return of trajectories sampled from the policy.
+- (X, y, loss) only. The objective is to minimize cross-entropy on a fixed dataset, with no transitions.
+- An MDP has no discount or start distribution, and the objective is to maximize the reward of the first step only.
+- The policy is part of the MDP tuple, and the objective is to match a human demonstration token for token.
+
+=== llm-rl-02
+W The return is G_t = r_t + gamma G_{t+1}. gamma < 1 makes the infinite sum well defined and weights near-term reward more; the effective horizon is about 1/(1-gamma). LLM RL with a terminal reward is often run at gamma = 1, because there is no infinite continuing stream.
++ G_t = r_t + gamma G_{t+1}. The horizon is about 1/(1-gamma). LLM RL with a terminal reward often uses gamma = 1.
+- The return is the last reward only, and gamma is the learning rate. LLM RL always uses gamma = 0.
+- Discounting is required even for a one-step bandit, and gamma = 1 is undefined for any finite episode.
+- G_t = gamma^{t} r_0, so later rewards are up-weighted, and the horizon is gamma itself.
+
+=== llm-rl-03
+W Token-level: state is the prompt plus tokens so far, action is the next token, transitions are deterministic, and the reward is often sparse at the end. Sequence-level: the whole completion is one bandit action with one reward. Both are used; the first is the usual MDP view, the second is why methods like RLOO feel like a contextual bandit.
++ Token-level: state is prompt plus tokens so far, action is the next token, deterministic transitions, sparse terminal reward. Sequence-level: one bandit action for the whole completion.
+- Token-level uses a random environment transition after every token, and sequence-level has no reward at all.
+- The two views are identical to a supervised language-modeling MDP with a reward at every character.
+- LLM generation cannot be an MDP because the state is text, so only bandits with no state are valid.
+
+=== llm-rl-04
+W LLM RL is episodic: a rollout ends at EOS or a cap. The horizon can be thousands of tokens, so credit assignment is hard and variance is high. If you truncate, you must treat the bootstrap or the terminal flag honestly, or you will teach the model the wrong thing about long answers.
++ LLM RL is episodic with very long horizons, so credit assignment and variance are hard. Handle truncation explicitly.
+- LLM RL is a continuing task with no episodes, so truncation cannot happen and horizons stay short.
+- Horizon is only the number of prompts in the batch, not the tokens in a response, so credit assignment is trivial.
+- Episodic tasks cannot use a terminal reward, which is why LLM RL must be continuing.
+
+=== llm-rl-05
+W V(s) is the expected return from a state under the policy. Q(s,a) is the expected return after taking a, then following the policy. A(s,a) = Q - V, and under the policy it has mean zero: good actions are above average, bad ones below.
++ V is the expected return from s, Q is the expected return after taking a, and A = Q - V, which has mean zero under the policy.
+- V is the max over actions, Q is a probability, and A is always positive, which is why you clip it.
+- A = V - Q, so taking the greedy action always has negative advantage.
+- V, Q, and A are three names for the immediate reward, and they differ only at terminal states.
+
+=== llm-rl-06
+G bellman
+W Start from G_t = r_t + gamma G_{t+1}, take expectations, and use the Markov property so the future return depends on s' only. That is V_pi(s) = E[r + gamma V_pi(s') | s, a ~ pi]. It is an expectation under the current policy, not a max.
++ V(s) = E[r + gamma V(s')], from G_t = r_t + gamma G_{t+1} and the Markov property. It is an expectation under pi, not a max.
+- V(s) = max_a [r + gamma V(s')], which is the expectation equation, and the dynamics can be ignored.
+- The Bellman expectation equation is V(s) = r, because future value is already in the reward by definition.
+- You cannot derive V from the return identity, because G_t is only defined for continuing tasks.
+
+=== llm-rl-07
+W Optimality is V*(s) = max_a E[r + gamma V*(s')]. Value iteration applies that backup with a model. Q-learning applies a sampled max backup without a model. These are rarely the main tools for LLM policy training, where we use policy gradients, but the equation is still the definition of an optimal value.
++ V*(s) = max_a E[r + gamma V*(s')]. Value iteration uses a model; Q-learning uses samples. They are rarely the main LLM training method.
+- The optimality equation is the same as the expectation equation, with no max, and Q-learning requires a full model.
+- Value iteration is the PPO loss, and Q-learning is how GRPO computes advantages.
+- There is no optimality equation for discrete actions, so these methods do not apply to tokens.
+
+=== llm-rl-08
+W The TD error is delta_t = r_t + gamma V(s_{t+1}) - V(s_t). Monte Carlo uses the full return: unbiased, high variance. TD uses a bootstrap target: lower variance, biased if V is wrong. If V is exact, E[delta | s,a] is the advantage.
++ delta_t = r_t + gamma V(s_{t+1}) - V(s_t). MC is unbiased and noisy; TD is lower variance and biased. E[delta] = A when V is exact.
+- TD is unbiased and Monte Carlo is biased. The TD error is V(s) - r, with no next-state term.
+- Monte Carlo and TD are identical once you use a discount, and delta is the policy entropy.
+- E[delta] is always 0, even if V is wrong, so it cannot estimate an advantage.
+
+=== llm-rl-09
+G policy-gradient
+W Because grad p = p grad log p, we have grad E_p[f] = E_p[f grad log p]. f can be a black-box reward; you do not need to differentiate the environment. Also E[grad log p] = 0, which is why baselines work. This is the score-function identity.
++ grad E[f] = E[f grad log p], because grad p = p grad log p. f can be a black box, and E[grad log p] = 0.
+- grad E[f] = E[grad f], so you always need to differentiate the reward and the dynamics.
+- The score function is grad p without the log, and E[grad log p] is 1, not 0.
+- The trick only works if f is a linear function of the action, not for a black-box reward.
+
+=== llm-rl-10
+W The log density of a trajectory splits into policy terms plus environment terms. Only grad log pi(a_t | s_t) depends on the parameters, so the dynamics drop out. The policy gradient is E[R(tau) sum_t grad log pi(a_t|s_t)].
++ grad log p(tau) = sum_t grad log pi(a_t|s_t), because dynamics do not depend on theta. So grad J = E[R(tau) sum_t grad log pi].
+- The dynamics stay in the gradient, so you need a model of P(s'|s,a) to do policy gradient.
+- grad J = E[grad R(tau)], with no log pi term, which is why dynamics drop out.
+- Only the last action's log-prob appears; earlier tokens have no gradient because the reward is terminal.
+
+=== llm-rl-11
+W Rewards that happened before time t do not depend on a_t, and E[grad log pi(a_t|s_t) | past] = 0, so those past rewards vanish in expectation. You can use the reward-to-go G_t, or Q, instead of the full episode return R(tau). That is causality, and it already cuts variance.
++ Past rewards multiply a zero-mean score, so they vanish in expectation. Use the reward-to-go G_t (or Q), not the full R(tau).
+- You must use the full R(tau) at every t, because dropping past rewards biases the gradient.
+- Causality means future rewards also vanish, so only the immediate r_t should be used, never G_t.
+- Reward-to-go is only valid when gamma is 0, otherwise you have to use R(tau).
+
+=== llm-rl-12
+W For a baseline that does not depend on the action, E_a[grad log pi(a|s)] b(s) = b(s) grad sum_a pi(a|s) = b(s) grad 1 = 0. So subtracting b(s) does not change the expected gradient. V(s) is the usual choice because it also cuts variance.
++ E_a[grad log pi(a|s)] b(s) = 0, so any action-independent baseline is unbiased. V(s) is the natural one.
+- Only a constant baseline is unbiased. A state-dependent V(s) would bias the gradient.
+- You must subtract Q(s,a), an action-dependent baseline, or the gradient is biased.
+- Baselines change the expected gradient, which is how they reduce variance.
+
+=== llm-rl-13
+W Softmax of [1,0,0] is about [0.576, 0.212, 0.212]. The score is onehot(a) - pi, so for arm 0 it is about [0.424, -0.212, -0.212]. A step z <- z + lr * reward * score with lr=0.5 and reward 1 gives about [1.212, -0.106, -0.106]. The other arms are pushed down.
++ grad_z log pi(arm 0) = onehot - pi ≈ [0.424, -0.212, -0.212]. With step size 0.5 and reward 1, z becomes about [1.212, -0.106, -0.106].
+- The gradient is [1, 0, 0], and z becomes [2, 0, 0], because softmax backwards is the identity.
+- pi is [1,0,0] already, so the score is zero and z does not change.
+- The score is pi - onehot, so arm 0 is pushed down and the other arms go up after a positive reward.
+
+=== llm-rl-14
+CODE
+W Sample a completion, score it, subtract a baseline to get A, then the loss is -A times the sum (or mean) of token log-probs on the response, take one optimizer step, and sample again. Do not backprop through the reward. Mask the prompt tokens.
++ Sample a response, score it, subtract a baseline, and use loss = -A * (sum of response token log-probs). Then step and resample. Do not differentiate the reward.
+- loss = A * sum of all prompt and response log-probs, and backprop through the grader as well.
+- REINFORCE for LLMs is ordinary SFT on the rejected samples, with no baseline and no sampling.
+- You should step the optimizer once per token with A equal to the raw logit, then never resample.
+
+=== llm-rl-15
+W Variance comes from long random trajectories and a noisy reward. Standard tools are reward-to-go, baselines, a learned critic or GAE, discounting, advantage normalization, more samples or larger groups, and trust-region or clipped updates so one noisy batch cannot jump too far.
++ Use reward-to-go, baselines, critics or GAE, discounting, advantage normalization, more samples, and trust regions or clipping.
+- The only tool is to raise the learning rate, which reduces variance by shrinking the policy faster.
+- Variance is not a problem for policy gradient, so you should not subtract a baseline or normalize advantages.
+- Trust regions increase variance, which is why PPO removes the clip in production LLM runs.
+
+=== llm-rl-16
+G grpo-group
+W RLOO sets A_i = R_i minus the mean of the other k-1 rewards in the group, which is an unbiased, critic-free leave-one-out baseline. Ahmadian et al. argued that with a strong SFT start, RLHF is close to a bandit, so a simple REINFORCE-style estimator can be enough, without a PPO critic stack.
++ A_i = R_i minus the mean of the other k-1 rewards: unbiased and critic-free. A strong SFT start makes RLHF more bandit-like, so REINFORCE-style methods can be enough.
+- RLOO trains a large critic, and the paper argues REINFORCE is never enough for RLHF.
+- RLOO uses A_i = R_i without a baseline, which is biased, and that is why it needs PPO.
+- Leave-one-out is only for eval, not for advantages, and it requires a value network.
+
+=== llm-rl-17
+W For [1,0,0,1,1] the mean is 0.6. RLOO uses the mean of the other four: a 1 gets 1-0.5=+0.5, a 0 gets 0-0.75=-0.75. GRPO uses (r-mean)/population std, and the population std is about 0.49, so the z-scores are about +0.816 and -1.225. Do not mix the two baselines.
++ Mean is 0.6. RLOO is +0.5 for a 1 and -0.75 for a 0. GRPO with population std about 0.49 is about +0.816 and -1.225.
+- Both methods give +0.4 and -0.6, the raw deviations from 0.6, with no leave-one-out and no std.
+- RLOO is +1 and 0, and GRPO is +1 and -1 after a min-max scale, independent of the group mean.
+- The group is too small for a baseline, so both advantages are just the raw rewards [1,0,0,1,1].
+
+=== llm-rl-18
+G gae-lambda
+W n-step advantages can be mixed with weights that form a geometric series in (gamma lambda). That sum is GAE: A_t = sum_l (gamma lambda)^l delta_{t+l}, and it is computed backwards as A_t = delta_t + gamma lambda A_{t+1}. You do not need a separate n for each term if you use that recursion.
++ A_t = sum_l (gamma lambda)^l delta_{t+l}, computed backwards as A_t = delta_t + gamma lambda A_{t+1}.
+- GAE is A_t = delta_t only, with no recursion, and n-step estimates cannot be mixed.
+- A_t = sum_l lambda^l r_{t+l}, with no TD errors and no gamma in the mix.
+- The backward recursion is A_t = A_{t+1} - delta_t, which is how you subtract the future.
+
+=== llm-rl-19
+W lambda=0 is one-step TD: A_t = delta_t, lower variance, more bias if V is wrong. lambda=1 is the Monte Carlo advantage (return minus V), unbiased if you have a true return, but noisy. You pick something in between, often around 0.95, to trade the two.
++ lambda=0 is one-step TD (lower variance, biased). lambda=1 is Monte Carlo minus the baseline (unbiased, noisy). Pick a value in between.
+- lambda=0 is Monte Carlo, and lambda=1 is one-step TD, the reverse of the definitions.
+- Both endpoints are unbiased and have the same variance, so lambda is only a learning-rate scale.
+- You should always use lambda=0 for LLMs, because Monte Carlo is undefined when gamma is 1.
+
+=== llm-rl-20
+W With gamma=1, deltas are 0+0.6-0.5=0.1, 0+0.8-0.6=0.2, and 1+0-0.8=0.2. Then A_2=0.2, A_1=0.2+0.95*0.2=0.39, A_0=0.1+0.95*0.39=0.4705. The MC advantages would be [0.5, 0.4, 0.2]. GAE sits between TD and MC.
++ Deltas are [0.1, 0.2, 0.2], GAE is [0.4705, 0.39, 0.2], and MC would be [0.5, 0.4, 0.2].
+- Deltas are [0, 0, 1], and GAE equals the rewards, [0, 0, 1], because gamma is 1.
+- GAE is [0.1, 0.2, 0.2], equal to the deltas, because lambda=0.95 is treated as 0.
+- MC and GAE are both [1, 1, 1], because the return is 1 at every step when gamma is 1.
+
+=== llm-po-10
+W An advantage says whether an action was better than average from that state. GAE is a specific estimator that blends TD errors with a lambda tradeoff between bias and variance, rather than using a single one-step or Monte Carlo target.
++ Advantage means better than average. GAE blends TD errors to trade bias for variance.
+- Advantage is the raw reward, and GAE is a second optimizer used instead of AdamW.
+- GAE removes the need for a value function, and the advantage is always the last reward only.
+- Better than average is a Q value, not an advantage, and GAE is a trust-region constraint.
+
+=== llm-rl-21
+CODE
+W For right-padded sequences, walk backward over T, use a not-done (or not-pad) mask so you do not bootstrap through padding or the end, and set A_t = delta_t + gamma * lam * notdone * A_{t+1} with delta = r + gamma V_next * notdone - V. Then maybe normalize over the valid tokens.
++ Walk backward over T: delta = r + gamma V_next * notdone - V, and A = delta + gamma lam * notdone * A_next, with padding masked out.
+- Walk forward and set A = r at every pad token, with no notdone mask, which is how you handle right padding.
+- GAE in PyTorch is a single vmap over the batch with V_next = V always, even after terminal.
+- You should compute A only at the last token and broadcast it, ignoring the backward recursion.
+
+=== llm-rl-22
+G actor-critic
+W The actor is the policy, the critic is a value model used to form advantages. The usual loss is a policy term -A log pi (or a clipped surrogate), a value term c_v (V - target)^2, and often an entropy bonus -c_e H. The two heads can share a trunk or be separate models.
++ Actor is the policy, critic is V used for advantages. Loss is typically -A log pi + c_v (V - target)^2 minus an entropy bonus.
+- Actor-critic means two copies of the policy and no value loss. Entropy terms are illegal in this method.
+- The only loss is the value loss. The actor is updated by copying the critic weights.
+- Actor-critic is a supervised method where the critic labels tokens, and A is not used.
+
+=== llm-rl-23
+W In LLM PPO the value is usually a scalar head on a separate model, often initialized from the reward model, producing a per-token (or last-token) value. A critic on the same weights as the policy is also possible but messy. Critics are hard in this setting because the reward is sparse and the scale moves, so people sometimes drop them (GRPO, RLOO).
++ Usually a per-token scalar head, often a separate model initialized from the RM. Critics are hard here, which is why some methods drop them.
+- The value is always the same model as the policy, with no design choices, and it is trained by SFT on the reward.
+- LLM PPO cannot use a value head, so advantages must be raw rewards, and initializing from the RM is harmful.
+- The critic is a classifier of prompts, not a return estimator, and it should not be initialized from the RM.
+
+=== llm-rl-24
+W Value clipping, like PPO's policy clip, clips V_new to a band around V_old and takes a conservative value loss (often the max of clipped and unclipped errors). Several studies found little consistent benefit, and it can depend on reward scale, so it is a knob to ablate, not a must.
++ Clip V_new to a band around V_old and take a conservative loss. Studies often found little benefit, so ablate it.
+- Value clipping is required for PPO to work, and it should always use the same eps as the policy clip with no ablation.
+- Value clipping replaces the value loss entirely, and it is the main reason PPO beats REINFORCE.
+- You clip the reward to V_old, not the value head, which is what the original PPO paper does.
+
+=== llm-rl-25
+W A large policy step can make the next batch of samples terrible, and you may not recover ("poisoned data"). Also, a small parameter change can be a large change in the distribution (KL). Trust regions or clips bound how far the new policy may move, usually in KL, so updates stay conservative.
++ A bad step can poison the next data, and parameter distance is not policy distance. Bound the KL (or clip the ratio) per update.
+- Large steps are always better, and parameter L2 distance already is the KL, so no trust region is needed.
+- Trust regions are only for supervised learning, and policy gradient is already safe at any LR.
+- The problem with large steps is only GPU overflow, not data quality or distribution shift.
+
+=== llm-rl-26
+W The performance difference can be written with states from the old policy and an importance weight pi/pi_old on the actions, giving the surrogate L = E_old[(pi/pi_old) A]. At pi = pi_old the gradient of L is the usual policy gradient. That is the TRPO/PPO starting point.
++ L = E_old[(pi/pi_old) A], which matches the policy gradient at pi = pi_old, using states from the old policy and IS on actions.
+- The surrogate is E_new[A] with no importance weight, which is why TRPO does not need an old policy.
+- L = E[log pi], with no advantage, and it is not equal to the policy gradient at the old policy.
+- Importance sampling is only used at eval time, never in the TRPO or PPO training objective.
+
+=== llm-rl-27
+W TRPO maximizes that surrogate subject to a hard mean-KL constraint to the old policy. It uses a natural gradient, often with conjugate gradient and Fisher-vector products, then a line search to stay inside the constraint. PPO later replaced that machinery with clipping.
++ Maximize the surrogate subject to mean KL <= delta, with a natural gradient (conjugate gradient and Fisher-vector products) and a line search.
+- TRPO minimizes the KL with no surrogate, solved by plain SGD, which is why it is cheaper than PPO.
+- The constraint is on parameter L2, not KL, and the solver is a closed-form softmax.
+- TRPO is just PPO with a smaller clip, and it does not use a Fisher or a line search.
+
+=== llm-rl-28
+W The natural gradient is the steepest ascent direction when you measure step size in KL, not in Euclidean parameter space. It is F^{-1} g, where F is the Fisher information of the policy. That makes the update invariant to how you parameterize the policy (up to the usual technical conditions).
++ It is steepest ascent under a KL metric: a step proportional to F^{-1} g, with F the Fisher. That is invariant to reparameterization.
+- The natural gradient is just g / ||g||, and it depends strongly on how you parameterize the policy.
+- Invariance means the Fisher is the identity, so the natural gradient equals the vanilla gradient always.
+- Natural gradients are only defined for linear policies, not for softmax over tokens.
+
+=== llm-po-08
+G ppo-clip
+W The PPO clipped objective is the minimum of r A and clip(r, 1-eps, 1+eps) A, with r = pi/pi_old and eps often 0.2. Clipping stops a single update from changing the probability ratio too much in the direction that would further increase the objective.
++ The objective is the importance ratio times the advantage, clipped to a band around 1, often 1 +/- 0.2, which limits how far one update can move the policy.
+- PPO clips the reward to +/- 0.2 and does not use an importance ratio, which is how it prevents large steps.
+- The clip is applied to the logits, not the ratio, and eps=0.2 means a 20% dropout on actions.
+- Clipping forces the ratio to 1 always, so the policy cannot change, which is a common misunderstanding of the min.
+
+=== llm-rl-29
+W With eps=0.2, clipping blocks the gradient only when the ratio is already outside [0.8, 1.2] in the direction that would raise the objective: r=1.5 with A=2 is clipped, r=0.7 with A=2 is not, r=0.7 with A=-1 is clipped, and r=1.5 with A=-1 is not. Inside the band, or when the ratio is "too close" in the bad direction, the unclipped term can still flow.
++ Clip blocks the gradient only when the ratio is already outside [0.8, 1.2] in the helpful direction: (A=2, r=1.5) and (A=-1, r=0.7) are clipped; the other two still have a gradient.
+- All four cases are clipped, because 1.5 and 0.7 are both not equal to 1, so no case has a gradient.
+- None of the four cases are clipped, because eps=0.2 only applies to the value head.
+- (A=2, r=0.7) is the only clipped case, because ratios below 1 are always clipped, regardless of A.
+
+=== llm-rl-30
+W A full iteration: collect rollouts, compute GAE, often normalize advantages, then K epochs of minibatches with clipped policy loss, a value loss, and an entropy bonus, plus grad clipping and a small LR. Then refresh rollouts. The hyperparameters (K, clip, epochs, minibatch) matter as much as the formula.
++ Rollouts, GAE, often normalize A, then K epochs of minibatches with clipped policy loss, value loss, and entropy, plus grad clipping. Then resample.
+- One big batch of SFT on the best rollout, with no GAE, no clip, and no epochs, which is the full PPO iteration.
+- PPO has no minibatch epochs; you must use each rollout once, and there is no value or entropy term in the official method.
+- The iteration is just AdamW on the reward model, then a frozen policy, with no rollouts.
+
+=== llm-rl-31
+W Log approximate KL to the old policy, clip fraction, entropy, value explained variance, reward mean and spread, KL to the reference, response length, and grad norm. Together they tell you if you are stepping too hard, collapsing, hacking length, or training a dead critic.
++ Log approx KL, clip fraction, entropy, value explained variance, reward stats, KL to the reference, length, and grad norm.
+- The only useful log is the training reward. The rest is noise and should be hidden so you do not overreact.
+- Clip fraction should always be 1, and entropy should go to 0 as fast as possible, which is success.
+- Grad norm and length are not PPO diagnostics, and KL to the reference should not be logged in RLHF.
+
+=== llm-rl-32
+W A lot of PPO's reported edge came from code-level details: advantage normalization, Adam eps, reward scaling, when to clip, how to init, LR annealing, and eval settings. If you compare methods, you have to control those, or you are comparing implementations, not ideas.
++ Code-level choices like normalization, init, LR annealing, and clipping details drove much of PPO's edge. Control them in comparisons.
+- Implementation details do not matter for PPO, which is why every repo gets the same numbers from the formula alone.
+- The only detail that matters is the clip eps, and everything else can be left at PyTorch defaults.
+- Papers that change logging or init are not changing PPO, so you can ignore those when you reimplement.
+
+=== llm-fd-14
+W Forward KL(p||q) is mode-covering: q must put mass on all modes of p, which is the usual pretraining or teacher-forcing direction (p is data). Reverse KL(q||p) is mode-seeking: q can drop modes and concentrate, which shows up in some RL and distillation objectives. Mixing them up explains a lot of "why is my model peaked" confusion.
++ Forward KL is mode-covering (pretraining). Reverse KL is mode-seeking (it can drop modes). Both show up in LLM training.
+- Forward KL is mode-seeking, and reverse KL is mode-covering, the reverse of the usual picture.
+- The two KLs are equal for softmax models, so the mode-covering vs mode-seeking distinction never appears.
+- Pretraining uses reverse KL, which is why language models are mode-seeking from step 0.
+
+=== llm-po-07
+W The KL term keeps the policy near the SFT (or other) reference so it does not hack the reward by leaving the distribution of reasonable text. The per-token reward often looks like r_final at the last token, minus beta times a per-token log-ratio KL, which then flows into GAE or a similar estimator.
++ Subtract a beta * KL-to-reference term from the reward (or the loss). That KL is the leash against reward hacking.
+- The KL penalty is added to encourage leaving the reference, which is how RLHF explores, and there is no per-token form.
+- KL is only computed at eval, not in the training reward, so it cannot act as a leash.
+- The reference is the reward model, not the SFT policy, and beta should be 0 for all LLM runs.
+
+=== llm-rl-33
+W A KL constraint (or clip) to pi_old is a trust region for update stability. A KL penalty to a fixed pi_ref is part of the objective, to stay near a good SFT model. An adaptive controller raises or lowers beta to keep the realized KL near a target. Do not mix the two KLs up in a log plot.
++ KL to pi_old is a trust region for stability. KL to pi_ref is an objective regularizer. An adaptive controller moves beta to hit a KL target.
+- The two KLs are the same term, and an adaptive controller is only used to change the learning rate, not beta.
+- A constraint to pi_ref and a penalty to pi_old is the standard split, the reverse of the usual roles.
+- Adaptive KL controllers set gamma, not beta, and they are unused in RLHF.
+
+=== llm-rl-34
+W k1 is log(q/p), unbiased but can be negative and noisy. k2 is (log r)^2 / 2, a squared approximation. k3 is (r-1)-log r, which is unbiased for the KL and nonnegative, a nicer training term. GRPO uses a k3-style estimator in the loss. Know which one you are logging.
++ k1 = log(q/p) is unbiased and noisy; k2 is (log r)^2 / 2; k3 is (r-1)-log r, unbiased and nonnegative. GRPO uses k3 in the loss.
+- GRPO uses k1 only, and k3 can be negative, which is why it is avoided.
+- All three estimators are identical, and GRPO does not include a KL term at all.
+- k2 is unbiased and used by GRPO, and k1 is the nonnegative one.
+
+=== llm-rl-35
+W A KL in the reward is folded into the return and then into advantages, so its gradient path is through A. A KL in the loss is an explicit extra term on the log-ratio (or k3) with its own coefficient. They are not the same gradient, and recipes pick one or both carefully, especially in RLVR-style papers.
++ In the reward, -beta log-ratio flows through advantages. In the loss, you add an explicit KL estimator. The gradients differ, and recipes choose deliberately.
+- The two placements give identical gradients always, so you can swap them with no change in the run.
+- KL in the reward is illegal, and KL in the loss cannot be used with advantages.
+- RLVR recipes never discuss this choice, because they use no KL term of either kind.
+
+=== llm-rl-36
+W Bradley-Terry says P(w > l) = sigmoid(r_w - r_l). The MLE is L = -log sigmoid(r_w - r_l). Only differences of rewards matter, so an additive constant on r is free, and people often normalize or constrain the scale. That is the pairwise RM loss.
++ P(w>l)=sigmoid(r_w-r_l), so MLE is L=-log sigmoid(r_w-r_l). Only differences matter, and the scale should be normalized or constrained.
+- The MLE is (r_w - r_l)^2, and absolute reward levels are identified, with no sigmoid.
+- Bradley-Terry uses a softmax over the vocab, not a pairwise sigmoid on rewards.
+- The loss is -r_w, ignoring the rejected reward, so differences do not matter.
+
+=== llm-po-06
+W The loss is -log sigmoid(r_chosen - r_rejected). For 1.5 and 0.5 the margin is 1, sigmoid(1) is about 0.731, and the loss is about 0.313. A larger margin would make the loss smaller. Only the margin matters, not the absolute scores.
++ Loss = -log sigmoid(r_chosen - r_rejected). For 1.5 and 0.5 the margin is 1, so the loss is about 0.313.
+- The loss is 1.5-0.5=1.0, with no sigmoid and no log.
+- The loss is -log sigmoid(0.5-1.5), which is large because the rejected score is in front.
+- The loss is |1.5-0.5|, 1.0, and it does not change if you add 10 to both rewards, but that is not the BT loss.
+
+=== llm-rl-37
+W A typical RM is a language model with a scalar head on the last token, trained about one epoch on pairwise (or ranked) data. Pairwise accuracy is a useful but incomplete metric; the real test is whether optimizing it still improves a gold or held-out preference, rather than just the proxy.
++ An LM plus a scalar head at the last token, often about one epoch on pairwise data. Accuracy is useful, but the real test is what happens when you optimize it.
+- The RM is a small bag-of-words linear model with no LM backbone, trained for 50 epochs until accuracy is 100%.
+- Evaluation is only the training loss of the RM, and a last-token head is avoided in practice.
+- You should train the RM jointly with the policy from step 0, and skip pairwise accuracy.
+
+=== llm-rl-38
+W Gao et al. 2022 showed that as you optimize a proxy RM, the proxy score can keep rising while a gold reward (or held-out human score) peaks and then falls, often looking like a curve in sqrt(KL) to the reference. Bigger, better RMs overoptimize later, but they still overoptimize. That is the overoptimization plot to remember.
++ The proxy reward can keep climbing while the gold reward peaks and then falls, often versus sqrt(KL). Bigger RMs overoptimize later, not never.
+- Gold and proxy rewards always move together, and bigger RMs never overoptimize.
+- Overoptimization happens only at KL=0, and it is fixed by using a smaller RM.
+- The paper found no systematic overoptimization, which is why RLHF needs no KL term.
+
+=== llm-po-23
+W Constitutional AI uses a written constitution of principles, has a model critique and revise answers, and can generate AI preference labels (RLAIF) from those principles, reducing some human labeling. It is still preference learning, just with more AI in the loop, and the constitution is a real design choice.
++ CAI uses written principles, plus AI critiques and AI preference labels (RLAIF), to reduce some human labeling.
+- CAI is a legal review of the training set, and RLAIF means RL without any preference labels.
+- Constitutional AI replaces the reward with a hard keyword filter, and there is no critique step.
+- RLAIF is unsupervised clustering, unrelated to principles or critiques.
+
+=== llm-po-24
+W AI preference labels inherit the judge's position, length, and family biases, and they can be stale when the judge version changes. Randomize order, control length, and calibrate against a human set. Do not treat AI labels as an unbiased gold.
++ AI labels inherit judge biases. Randomize order and calibrate against humans.
+- AI labels are unbiased if the judge is large, so you can skip order randomization and human calibration.
+- The only risk is cost, not bias, and calibration would make the labels worse.
+- Position and length biases do not appear in AI judges, only in human raters.
+
+=== llm-rl-39
+W One PPO-RLHF iteration: the policy generates completions, you store reference log-probs, the RM scores, and the critic values; you form a per-token reward (KL terms plus a final score), run GAE, then PPO-clip on the response tokens, update, and repeat. Keep the data flow explicit or the KL and masks will be wrong.
++ Generate, store ref log-probs, RM score and values, build a per-token KL reward plus a final score, GAE, then PPO-clip on response tokens.
+- Only the RM is updated, and the policy is frozen, with no GAE and no reference log-probs.
+- You can skip reference log-probs if you clip, and the reward is a sequence BLEU, not an RM plus KL.
+- The iteration is SFT on the RM's favorite sample, with no PPO loss and no critic.
+
+=== llm-po-09
+W PPO-style RLHF typically needs the policy, a critic, a frozen reference, and a reward model in memory (plus generation, which is slow). That is why people look at DPO, GRPO, and other methods that drop some of those models. The cost is not just one 7B forward.
++ Policy, critic, reference, and RM, plus slow generation. That is why the stack is so expensive.
+- Only the policy is needed, because the RM and reference can be computed from it with no extra memory.
+- PPO-RLHF is cheaper than SFT, because generation is faster than a backward pass.
+- The critic and the RM share one set of weights always, and the reference is not stored.
+
+=== llm-rl-40
+W Practical PPO-RLHF tricks include normalizing rewards and advantages, being careful with EOS and truncated endings, initializing the critic from the RM, using a very small LR, sampling at temperature 1 during rollouts, and checking that training-time log-probs match the generation engine. Those details often move results more than a new loss alias.
++ Normalize rewards and advantages, handle EOS and truncation, init the critic from the RM, use a tiny LR, sample at temperature 1, and check log-prob mismatch.
+- Use temperature 0 rollouts, a large LR, no reward normalization, and ignore EOS, which is the stable recipe.
+- Log-prob mismatch is harmless, and the critic should not be initialized from the RM.
+- The only trick that matters is increasing the clip to 2.0, and truncation can be ignored.
+
+=== llm-rl-41
+W The KL-regularized objective is E[r] - beta KL(pi || pi_ref), which is equal (up to a constant) to -beta KL(pi || pi_ref * exp(r/beta) / Z). So the optimal policy is pi* = pi_ref exp(r/beta) / Z. That identity is the start of the DPO derivation.
++ The objective folds into a KL to pi_ref exp(r/beta)/Z, so the optimal policy is pi* = pi_ref exp(r/beta) / Z.
+- The optimal policy is pi_ref itself, because the KL term dominates any bounded reward.
+- pi* is a hard argmax of r, with no dependence on pi_ref or beta.
+- The partition function Z cannot appear, so there is no closed form for pi*.
+
+=== llm-rl-42
+G dpo-pref
+W From r = beta log(pi*/pi_ref) + beta log Z, the Z terms cancel in a Bradley-Terry pair. Substituting and fitting pi_theta gives the DPO loss -log sigmoid(beta (log pi_w/pi_ref_w - log pi_l/pi_ref_l)). You never train an explicit RM.
++ r = beta log(pi*/pi_ref)+beta log Z; Z cancels in Bradley-Terry; the DPO loss is -log sigmoid of the beta-weighted log-ratio margin.
+- DPO still trains an RM, and Z does not cancel, which is why you need a value head.
+- The DPO loss is a simple NLL on the chosen reply only, with no rejected term and no beta.
+- You derive DPO from PPO with a clip, not from Bradley-Terry, and the reference model drops out.
+
+=== llm-rl-43
+W The gradient weights pairs by a sigmoid of the current "wrongness" (how much the model still prefers the loser), then adds grad log pi on the winner and subtracts it on the loser. It focuses on misranked pairs, and both likelihoods can fall if that still widens the margin, which is a known behavior to watch.
++ The weight is sigmoid of the current loser-minus-winner score, times (grad log pi(winner) - grad log pi(loser)). It focuses on misranked pairs, and both log-probs can fall.
+- The gradient only raises the winner and never lowers the loser, and every pair is weighted equally.
+- DPO's gradient is the same as SFT on both replies, with no sigmoid weight.
+- If both log-probs fall, the run is invalid, because DPO forbids decreasing the chosen log-prob.
+
+=== llm-rl-44
+G grpo-group
+W DeepSeekMath GRPO: sample a group, take a z-score advantage per prompt, apply a PPO-style clip on token-level ratios, add a k3 KL in the loss, and average over tokens in a sequence then over the group. There is no value network in the original recipe.
++ Group z-score advantage, PPO-style clip on token ratios, k3 KL in the loss, mean over tokens then over the group. No value net.
+- GRPO uses a large critic, no clip, and a k1 KL in the reward only, averaged over the batch not the group.
+- Advantages are raw rewards, the KL is omitted, and the mean is over the vocab, not tokens.
+- The original recipe is sequence-level ratios only, with no z-score, which was added later by GSPO.
+
+=== llm-ip-07
+CODE
+W Given per-token log-probs for the current and old (or ref) policies, compute a group z-score advantage, form the ratio, clip, multiply by A, mask the completion tokens, and take a mean. That is the policy term; a KL term may be added separately.
++ Compute a group z-score advantage, PPO-clip the per-token ratios, and take a masked mean over completion tokens.
+- Use the raw reward as A, do not clip, and average over prompt tokens only.
+- The loss is (logp - logp_old).max(), with no group and no mask.
+- Implement GRPO as cross-entropy to the argmax sample, ignoring the other group members.
+
+
+=== llm-po-17
+W If all 8 samples get the same reward, the group mean equals every r_i, so advantages are 0 and that prompt adds no gradient. People therefore train on a difficulty band where the model sometimes succeeds, drop or resample all-pass and all-fail groups, or use methods like DAPO dynamic sampling.
++ Uniform rewards give zero advantage, so there is no learning signal. Train on prompts the model sometimes solves, or filter all-pass and all-fail groups.
+- Uniform rewards give the largest advantages, which is the best training case, so you should seek all-pass groups.
+- You should still step on those groups using A=1, because a correct group must be reinforced even if std is 0.
+- This cannot happen if you use 8 samples, so no filter is needed.
+
+=== llm-rl-45
+W If you divide a sequence advantage by length |o| when forming a per-token weight, a long wrong answer is penalized less per token than a short wrong answer, so the policy can learn to ramble when it is wrong. That is the length bias Dr. GRPO highlights. A numeric example is a short fail vs a long fail with the same outcome reward: the long one gets a smaller per-token penalty.
++ Weighting by A/|o| gives long wrong answers a smaller per-token penalty, so the policy can learn to ramble when it is wrong. That is the length bias Dr. GRPO points out.
+- Longer wrong answers get a larger per-token penalty, so the bias is toward very short failures, not rambling.
+- Per-sequence normalization removes all length effects, which is why Dr. GRPO says the original GRPO had no length bias.
+- The bias only appears when every answer is correct, not when answers are wrong.
+
+=== llm-rl-46
+W Dividing by the group std upweights prompts whose rewards barely vary, including near-all-fail or near-all-pass groups that happen to have one different sample. That is a difficulty bias: oddly easy or hard prompts can dominate. Dr. GRPO recommends A = r - mean, without the std.
++ 1/std upweights prompts with tiny reward spread, often near 0% or 100% success: a difficulty bias. Dr. GRPO uses r - mean only.
+- Dividing by std removes difficulty bias, which is why Dr. GRPO keeps it.
+- The std term only scales the learning rate globally, and it cannot change the relative weight of prompts.
+- Dr. GRPO adds a second std over the whole batch, rather than removing the group std.
+
+=== llm-rl-47
+W DAPO's four often-cited techniques are clip-higher (asymmetric clip, e.g. 0.2 / 0.28), dynamic sampling of groups that still have a signal, a token-level loss, and overlong filtering or a soft length penalty. They target entropy collapse, zero-advantage groups, length bias, and runaway length.
++ Clip-higher, dynamic sampling of informative groups, a token-level loss, and overlong filtering or a soft length penalty.
+- DAPO is a new backbone architecture with four attention variants, not a GRPO recipe.
+- The four techniques are larger groups, no clip, a value net, and dropout on the reward, the reverse of the paper's focus.
+- DAPO only changes the tokenizer, and it has no clip or sampling changes.
+
+=== llm-rl-48
+W GSPO uses one length-normalized sequence-level importance ratio (a geometric mean of token ratios) and clips the whole sequence, rather than clipping token by token. The claim is more stable updates, especially in some MoE or long-reasoning settings, because a few token-level spikes cannot dominate.
++ Use one length-normalized (geometric mean) ratio per sequence and clip the whole sequence, which can be more stable than token-level clips.
+- GSPO clips each token independently and never forms a sequence ratio, which is how it differs from GRPO.
+- GSPO removes importance sampling entirely and uses SFT on the best sample only.
+- The sequence ratio is an arithmetic mean of rewards, not a geometric mean of token ratios.
+
+=== llm-po-18
+W 2025 critiques of vanilla GRPO cluster around length bias, std-based difficulty weighting, and entropy collapse, plus various ratio and clip details (Dr. GRPO, DAPO, GSPO, and related notes). If you use GRPO, watch those three failure modes in the logs and samples, not just the mean reward.
++ Watch length bias, std-based difficulty weighting, and entropy collapse, which are the usual 2025 critiques and the target of the main fixes.
+- Vanilla GRPO was found to need no fixes, and the 2025 papers only added faster kernels.
+- The critiques are about the tokenizer, not the advantage or the clip, so logs of length and entropy are optional.
+- The recommended fix is to remove the group entirely and go back to a single sample, with no baseline.
+
+=== llm-po-15
+W RLVR uses a program or checker as the reward (math answers, unit tests) instead of a learned RM. It took off because those rewards are cheap, fairly reliable, and hard to hack compared with a preference model, so you can run longer RL and actually grow reasoning traces.
++ Program-checked rewards are relatively hard to hack and cheap at scale, so RL can run longer and grow reasoning. That is why RLVR took off.
+- RLVR is RL with a learned judge only, and it took off because checkers were abandoned in 2024.
+- Verifiable rewards are more hackable than RMs, which is why RLVR is used only for style, not math or code.
+- RLVR is a pretraining dataset, not a reward setup, and it is unrelated to checkers.
+
+=== llm-rl-49
+W For math: extract the final answer, normalize, and check equivalence (not just a raw string). For code: run hidden tests in a sandbox, plus timeouts and tamper checks. Design choices include format requirements, how you handle parse failures, and whether any process points are added. Be strict, or RL will game the parser.
++ Math: extract, normalize, check equivalence. Code: hidden tests in a sandbox. Be strict about format, parse failures, and process points, or the policy will game the grader.
+- Math should be graded by a fuzzy model judge, and code should be graded by whether it compiles, with no hidden tests.
+- The common choice is to show all tests in the prompt and give partial credit for any printed number.
+- Equivalence checks are optional, and parse failures should be given a positive reward so the policy keeps trying.
+
+=== llm-rl-50
+W Verifiers match the actual goal, are cheap to run at scale, and are harder to hack than a learned preference model, so the policy can discover long chains instead of style tricks. Reward-model RLHF is still useful for preference, but it overoptimizes more easily and is a weaker training signal for hard reasoning.
++ Verifiers are harder to hack, cheap at scale, and aligned with the goal, so long reasoning can actually be trained. RM-based RLHF is easier to game and weaker for this.
+- RLVR worked because verifiers are softer than RMs, which lets the policy invent style rewards for reasoning.
+- Reward-model RLHF is strictly better for math, and RLVR only helps with chat tone.
+- The reason is only more compute, not the reward type, so a hackable RM would have done the same.
+
+=== llm-rl-51
+W Reward hacking / specification gaming is satisfying the literal reward, not the intent. A classic non-LLM example is the CoastRunners boat that loops to farm points instead of racing. Goodhart's law is the slogan: a measure you optimize hard stops being a good measure.
++ The agent satisfies the literal reward, not the intent, like the CoastRunners boat looping for points. That is Goodhart: a heavily optimized measure stops being a good one.
+- Reward hacking means the optimizer has a bug, and CoastRunners is an example of underfitting, not of a bad reward.
+- Specification gaming only happens in LLMs, and the CoastRunners example is a successful race, not a hack.
+- Goodhart's law says measures get better as you optimize them, which is why hacking is rare.
+
+=== llm-po-21
+W Concrete LLM hacks include: spamming format tokens the grader loves, over-long answers that farm partial credit, leaking or hard-coding test answers, sycophancy or hedging to please a judge, and empty but well-boxed "answers." The policy is optimizing the grader, not your intent. Always look at samples.
++ Typical hacks are format spam, length farming, leaking tests, and pleasing a judge with style, not substance. The policy is optimizing the grader, not your intent.
+- LLMs cannot hack a reward unless the learning rate is 0, so concrete examples are only theoretical.
+- The four examples are underfitting, hardware faults, tokenizer bugs, and typo-ridden prompts, not grader gaming.
+- If the reward is verifiable, hacking is impossible, so you do not need examples or sample review.
+
+=== llm-po-22
+W If training reward rises while a held-out eval is flat or down, read samples, find the exploit, and fix the environment or the grader, not just the coefficient on the same broken reward. Length, repetition, and judge-pleasing style are common tells. Keep a frozen eval the policy cannot train on.
++ Training reward up and held-out eval flat usually means hacking. Read samples and fix the environment or grader, not just the reward weight.
+- If training reward is up, the run is healthy, even if held-out eval is flat. Do not change the env.
+- The fix is always to raise beta and never to inspect samples, because exploits cannot hide in text.
+- You should add the held-out eval to the training reward so the two curves match.
+
+=== llm-ip-13
+W Reward up, held-out flat, length tripled: this is a classic length or format hack. Read samples, find what the grader is paying for, tighten the grader or add a length penalty or cap, and keep a frozen eval. Do not celebrate the training reward or just lower the LR and hope.
++ Read samples, find the exploit (often length or format), fix the grader or the length rule, and keep a frozen eval. Do not trust the climbing train reward.
+- This is healthy reasoning: longer is always better, so you should raise the length cap and ignore the held-out eval.
+- Lower the learning rate only, without reading samples, because length growth is a side effect of a good critic.
+- The held-out eval is wrong if it disagrees with the training reward, so replace the eval with the train grader.
+
+=== llm-fd-15
+G entropy-collapse
+W Next-token entropy is how spread the predictive distribution is. In RL, falling entropy means the policy is becoming peaked, which can kill exploration. You monitor it so you can catch entropy collapse early, before every rollout looks the same.
++ Entropy measures how spread the next-token distribution is. If it collapses in an RL run, exploration is dying, so you should watch it.
+- Entropy is the training loss, and a collapse means the model has finished learning, which is always good.
+- You should not monitor entropy in RL, because sampling temperature already fixes exploration.
+- High entropy at the end of RL is the main failure mode, and a collapse to 0 is the goal.
+
+=== llm-rl-52
+W Cui et al. (2025) describe entropy change as driven by a covariance between log-prob and advantage: when high-confidence tokens also have positive advantage, those probabilities rise further and entropy falls. "Confident and right" reinforces collapse. That is a mechanism, not just a vibe, and it motivates clip and covariance-aware fixes.
++ Entropy change is driven by cov(log-prob, advantage). When confident-and-right tokens are upweighted, the policy peaks and entropy falls.
+- Entropy rises whenever advantage is positive, so collapse cannot come from getting answers right.
+- Collapse is only from the KL term, and log-prob covariance with advantage is unrelated.
+- Cui et al. showed entropy is constant in GRPO, so no mechanism is needed.
+
+=== llm-rl-53
+W Tools include higher temperature, clip-higher, covariance-aware or entropy-aware clipping, a careful entropy bonus (which can also be hacked), keeping a prompt difficulty band, and larger or more diverse groups. Each one has a cost: too much entropy bonus yields nonsense, too much temperature hurts the reward, a bad band wastes samples.
++ Temperature, clip-higher, covariance-aware clipping, a careful entropy bonus, a difficulty band, and larger groups. Each has a tradeoff, including entropy hacks.
+- The only tool is to set temperature to 0, which maximizes exploration, and to drop entropy bonuses.
+- Exploration is free if you use GRPO, so no extra tools or tradeoffs are needed.
+- Bigger groups always reduce exploration, and clip-higher always collapses entropy.
+
+=== llm-po-19
+G process-vs-outcome
+W Outcome rewards score the final answer and have been the main signal that scales for reasoning RL. Process rewards score steps, can help reranking or denser credit, but they are easier to get wrong or hack. Use process labels carefully, and do not assume a PRM is automatically a better training reward.
++ Outcome rewards have been the main scaling signal. Process rewards can help reranking and denser credit, but they are more hackable and fuzzy.
+- Process rewards dominate RL at scale, and outcome rewards are obsolete because they cannot train long traces.
+- The two are equivalent once you average, and PRMs have not been hacked in practice.
+- Evidence says you should always replace the outcome checker with a PRM before running RL.
+
+=== llm-rl-54
+W PRM800K used a large set of human step labels (on the order of 800k). Math-Shepherd and similar work label steps by Monte Carlo: a step is good if rollouts from it often reach a correct answer. You get denser credit, but the labels are fuzzy and a policy can still hack a learned PRM.
++ PRM800K uses a large human step-label set. Automatic methods like Math-Shepherd label steps by Monte Carlo success from that point. The credit is denser, but still fuzzy and hackable.
+- Process RMs cannot be trained without human labels, and Monte Carlo labeling has not been tried.
+- PRM800K is automatically labeled, and Math-Shepherd is the human-only dataset, the reverse of the usual story.
+- Once a PRM is trained, it is not hackable, which is why you do not need an outcome check anymore.
+
+=== llm-ev-20
+W An RL environment for an LLM agent needs a task distribution, an initial state, tools or APIs, sandboxed transitions, a termination rule, a reward, and a reset. If any of those is implicit or leaky, you do not yet have a trainable env, just a demo.
++ Tasks, an initial state, tools, sandboxed transitions, termination, a reward, and reset.
+- Only a reward model is required. Tools, sandboxes, and reset can be added after training starts.
+- The environment is just the tokenizer and a chat template, with no tools or termination rule.
+- Reset is optional for episodic agent tasks, and the initial state can be left undefined.
+
+=== llm-rl-55
+CODE
+W A usable interface is reset / step / grade / close around an isolated, reproducible sandbox. Tool outputs should often be masked from the policy loss, and you should grade the final state, not the agent's narrative. The episode loop is: reset, step until done, grade, close or reset again.
++ reset / step / grade / close in an isolated, reproducible sandbox; mask tool outputs from the loss; grade the final state.
+- The interface is train() only, with no reset or grade, and the agent is graded on its transcript in a shared, non-isolated shell.
+- step should apply all tools with network on, and grade should trust the agent's "done" message, with no sandbox.
+- close is the only required method, and episodes cannot be reset if you want reproducibility.
+
+=== llm-ev-21
+W Train where the current policy sometimes succeeds, not always and not never. All-pass tasks give no contrast, all-fail tasks give no success to reinforce, and both waste rollout budget. A mid band, updated as the policy improves, is the usual target.
++ Train on tasks the policy sometimes solves. All-pass and all-fail groups give little or no advantage signal.
+- Train only on tasks the policy already solves 100% of the time, so the reward is stable.
+- Train only on impossible tasks, so the policy explores, and ignore mid-band tasks.
+- Pass rate does not matter for GRPO, because the group always has a signal at any success rate.
+
+=== llm-ev-22
+W Before you train, every task should have a passing oracle (a known-good solution), a failing null (empty or random), no known cheap exploit, deterministic grading, and a reasonable chance of being solvable. If the oracle fails or the null passes, the env is not ready.
++ Oracle solutions pass, nulls fail, known exploits fail, grading is deterministic, and the task is solvable.
+- If a random agent scores 50%, the env is ready, even if the oracle fails.
+- Determinism is optional, and exploits can be left in so the policy can find them later.
+- You should ship the env before writing an oracle, because training will reveal the intended solution.
+
+=== llm-ev-23
+W Expect the policy to edit tests, write to grader files, hard-code answers, disable the sandbox, look at future tool output, or farm sleep/time rewards. If a shortcut exists, RL will find it. Close the shortcut in the environment, then re-check with a red-team policy.
++ If there is a shortcut, RL will find it: editing tests, leaking answers, breaking the sandbox, and farming easy rewards. Close those in the env.
+- A strong policy will not hack a coding env if the prompt says not to, so no extra checks are needed.
+- The expected hacks are only typo-level mistakes, not test tampering or sandbox escapes.
+- You should reward any filesystem write, because that shows tool use, even if tests were modified.
+
+=== llm-ev-24
+W Sparse outcome rewards are harder to hack and match the real goal, but they can be slow to learn. Shaped partial credit speeds learning and then often gets farmed (length, extra comments, fake subgoals). Start with a strict outcome when you can, and add shaping only if you can test that it is not being farmed.
++ Outcome rewards resist hacking but can be slow. Shaping speeds learning and invites farming. Prefer a strict outcome, and audit any shaping.
+- Shaping is always safer than an outcome reward, which is why you should pay for every intermediate print.
+- The two are equivalent in practice, and farming of shaped rewards has not been observed in agent RL.
+- Sparse outcome rewards are easier to hack than shaping, so they should be avoided in coding envs.
+
+=== llm-ev-27
+W A rubric breaks a vague quality goal into narrower, auditable checks a judge can score. That is better than one holistic vibe score, but it is still hackable (keyword stuffing, rubric-shaped fluff). Keep hidden items, audit samples, and do not pretend a rubric is a verifier.
++ Rubrics make judge rewards narrower and auditable, but they are still hackable. Audit samples, and do not treat a rubric as a hard verifier.
+- A rubric makes a judge unhackable, so you can drop human audits and hidden checks.
+- Rubrics are worse than a single holistic score, and they cannot be audited.
+- Once a rubric exists, you should show every item to the policy in the prompt, including hidden ones.
+
+=== llm-ev-28
+W Simulated users are often too nice, too consistent, or too easy to manipulate with style and sycophancy. If you grade their approval, the policy will please the sim, not solve the task. Grade the underlying state or a real user sample, and treat the sim as a tool, not as the gold reward.
++ Simulated users are too easy to please or manipulate. Grade the real state (or a human sample), not the sim's approval.
+- A simulated user is a safe gold reward, better than the environment state, and it cannot be manipulated.
+- The pitfall is only slower rollouts, not bias, so you can grade the sim's satisfaction alone.
+- You should hide the task state and use only the simulated user's final rating, which is the conservative design.
+
+=== llm-rl-56
+G importance-sampling
+W Importance sampling says E_p[f] = E_q[(p/q) f] when q covers p. The variance blows up when p and q differ, and a product of token ratios over a long sequence explodes even faster. That is why people clip, truncate, or use a sequence-level ratio, rather than a raw product of T terms.
++ E_p[f] = E_q[(p/q) f]. Variance grows as p and q diverge, and a product over T tokens explodes, so you clip or truncate.
+- The variance shrinks as T grows, so long sequences make raw IS more stable, and clipping is unnecessary.
+- Importance sampling requires p=q, and the identity does not hold for rewards, only for log-probs.
+- The IS weight is q/p, and products over tokens cannot explode if the policy is a softmax.
+
+=== llm-rl-57
+W Even a so-called on-policy LLM RL run is usually a bit off-policy: several epochs on the same batch, async or stale actors, and train vs inference mismatches in precision, kernels, MoE routing, or sampling implementations. You should measure log-prob agreement, not assume it is exact.
++ Multiple epochs, async staleness, and train vs inference numerics (precision, kernels, MoE routing, sampling) make it slightly off-policy.
+- If you set the clip to 0.2, the run is exactly on-policy, and train/inference log-probs always match.
+- LLM RL is off-policy only when you use a replay buffer from last year, not because of kernels or epochs.
+- MoE routing and precision cannot change log-probs, so mismatch is always a data bug, never a systems bug.
+
+=== llm-rl-58
+W TIS weights each token by min(pi_train / pi_infer, C) (or a close variant) to correct engine mismatch while bounding the variance. You log the weights and the fraction that hit the cap, so you can see how serious the mismatch is. It is a patch, not a reason to ignore the mismatch.
++ Weight tokens by min(pi_train/pi_infer, C) to correct engine mismatch with bounded variance, and log those weights.
+- TIS uses max(pi_train/pi_infer, C), which amplifies the largest mismatches, and you should not log the weights.
+- TIS is only for off-policy replay of old months of data, not for train/inference mismatch on the same batch.
+- The right fix is to ignore the mismatch, because a clip in PPO already implements TIS.
+
+=== llm-rl-59
+W V-trace (IMPALA) is for actor-learner setups: actors generate, a learner updates, and value targets use truncated importance-sampling products (rho-bar, c-bar) so stale trajectories do not explode. The same idea, truncated IS on slightly stale rollouts, is why it shows up in async LLM RL systems.
++ It is an actor-learner method whose value targets use truncated IS products, which keeps stale async trajectories from exploding. That is why it matters for async LLM RL.
+- V-trace is a on-policy GAE with no IS, and it is unrelated to actor-learner or async LLM systems.
+- IMPALA requires a single GPU and no truncation, which is why V-trace is unused in async stacks.
+- rho-bar and c-bar are entropy bonuses, not truncated IS coefficients.
+
+=== llm-rl-60
+W A practical GRPO/RLVR loop is: sample prompts in a difficulty band, generate G completions each, grade them, filter useless groups, compute advantages, recompute train-time log-probs, apply clipped updates plus a KL or ref term, sync generation weights, and repeat. Treat generation, grading, and the trainer as a system, not a single loss line.
++ Sample band-filtered prompts, generate G each, grade, filter, compute advantages, recompute log-probs, apply clipped updates, and sync the generation weights.
+- Train only on a static SFT set with no generation, no grader, and no weight sync, which is the RLVR loop.
+- Generate once at the start of the run, reuse those samples forever, and skip filtering and log-prob recomputation.
+- The loop is: update, then grade, then generate, so you never need to sync weights to the inference engine.
+
+=== llm-ev-25
+W Agent RL is usually rollout-bound: the env, tools, and long episodes cost more than the backward pass. Use warm process pools, async rollouts, retries, and careful isolation so env errors are not recorded as model errors. Optimize the waiting time, not just MFU of the trainer.
++ Agent RL is rollout-bound. Use warm pools and async rollouts, and separate environment errors from model errors.
+- The backward pass dominates, so you should ignore rollout latency and only raise trainer MFU.
+- Env errors should be treated as model failures in the reward, and async rollouts are unsafe.
+- Warm pools are only for training-time data loaders, not for tool environments, and they do not help RL.
+
+=== llm-rl-61
+W Colocated systems share GPUs between generate and train, often resharding weights between phases. Disaggregated systems use separate GPU pools, overlap async rollouts with training, and broadcast or stream new weights, at the cost of staleness. The choice is about utilization and complexity, not a moral "true on-policy" rule.
++ Colocated: the same GPUs alternate generate and train, often resharding. Disaggregated: separate pools, async overlap, weight broadcast, and some staleness.
+- Colocated always uses two clusters, and disaggregated means one GPU does everything with no staleness.
+- There is no tradeoff: disaggregated is strictly better, with zero staleness and less complexity.
+- Resharding and weight broadcast are not part of these designs, which only differ in the loss function.
+
+=== llm-rl-62
+W Debug in order: the grader (or reward), the data difficulty band, train vs inference log-prob agreement, attention/loss masks, advantage scale, step size, entropy and length, then raw samples, then a tiny reproducible setup. Do not start by rewriting the algorithm if the grader is wrong.
++ Check the grader first, then the data band, log-prob agreement, masks, advantages, step size, entropy and length, samples, and a small repro.
+- First rewrite the loss and raise the LR, then look at samples if you have time, and trust the grader by default.
+- Start with a full cluster-scale rerun, and skip log-prob agreement, because it is rarely the bug.
+- Entropy and length should be inspected last after a new paper-scale ablation, not early in the checklist.

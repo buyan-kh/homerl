@@ -1,0 +1,83 @@
+=== llm-p7-01
+G attention-qk
+W In the residual-stream view, a head reads from the stream and writes back. The QK circuit W_Q^T W_K, rank at most d_head, decides where to attend. The OV circuit W_O W_V decides what is written at the destination. The two are independent and can compose across layers, which is how induction heads form in two-layer attention-only models.
++ QK = W_Q^T W_K decides where to look. OV = W_O W_V decides what to copy. Both are low-rank, independent, and composable across layers.
+- QK is the residual stream itself, and OV is the softmax. Heads cannot compose across layers because each layer overwrites the stream.
+- OV decides where to attend, and QK decides what to copy. They must share the same matrix or the head is underdetermined.
+- QK and OV are the LayerNorm scales on Q and V. The paper is about making those scales monosemantic.
+
+=== llm-p7-02
+G induction-head
+W An earlier previous-token head writes "the token before me was A" into B. Later, at the second A, an induction head uses K-composition to attend to the token after the earlier A, which is B, and the OV circuit copies B. That is [A][B] ... [A] -> [B]. Olsson et al. 2022 saw these heads form in a sudden phase change at the same time in-context learning jumped.
++ A previous-token head plus a later induction head: attend to the token after the earlier copy of the current token, and copy it. They often form in a phase change tied to in-context learning.
+- An induction head is a single first-layer head that attends only to position 0 and copies the BOS token. It is unrelated to in-context learning.
+- Induction heads are MLP features that store the training set verbatim. Attention is not involved.
+- The induction pattern is a vertical stripe of attention to the last token. It appears at init and does not change in training.
+
+=== llm-p7-03
+W The logit lens unembeds the residual after each layer to see what the model would predict if it stopped there. That is correlational. Activation patching runs a corrupted prompt but writes in a clean activation, then measures how much of the clean behavior returns, usually with a logit difference. Patching is causal. Attribution patching is a cheaper first-order approximation.
++ Logit lens: unembed intermediate residuals (correlational). Patching: put a clean activation into a corrupted run and measure recovery (causal).
+- Logit lens is a causal intervention, and patching is just a visualization of attention patterns. They are interchangeable.
+- Both methods only work on MLPs, not attention. You measure accuracy, not logit differences.
+- Patching trains a new probe on corrupted data. The logit lens is the name for the unembedding of the final layer only.
+
+=== llm-p7-04
+CODE
+W Load a HookedTransformer, run_with_cache to read named hook points (hook_pattern, hook_resid_post, hook_z, and so on), and run_with_hooks to ablate or patch during the forward pass. Know what weight processing was folded (for example LayerNorm) before comparing with Hugging Face logits.
++ model = tl.HookedTransformer.from_pretrained("gpt2-small")
+logits, cache = model.run_with_cache(prompt)
+pattern = cache["blocks.5.attn.hook_pattern"]
+def zero_head(z, hook, head=9):
+    z[:, :, head, :] = 0.0
+    return z
+patched = model.run_with_hooks(tokens, fwd_hooks=[("blocks.9.attn.hook_z", zero_head)])
+- model = AutoModelForCausalLM.from_pretrained("gpt2")
+logits = model(prompt)
+# TransformerLens is only a plotting library, so you cannot patch activations
+- cache = torch.autograd.grad(loss, model.parameters())
+# hooks are not needed; gradients already are the circuit
+- model.run_with_cache is only for the final logits
+model.run_with_hooks is only for changing the tokenizer
+
+=== llm-p7-05
+W A linear probe shows that a property is linearly decodable from a frozen activation. It does not show the model uses that direction. You need interventions, like steering or patching, to test use. Pitfalls include a probe that learns the task itself, spurious correlates, and skipping held-out accuracy or control tasks. Probes are still a cheap, strong baseline, sometimes competitive with SAE features on detection tasks.
++ Probes show linear decodability, not that the model uses the feature. Validate with interventions and control tasks. They are a cheap, strong baseline.
+- If a probe is accurate, the model must be using that direction, so interventions are unnecessary.
+- Probes only work on SAE features, not raw activations, and they replace the need for control tasks.
+- A nonlinear probe is required or the result is invalid. Linear probes cannot detect board state or syntax.
+
+=== llm-p7-06
+W Superposition means representing more features than there are dimensions, using almost-orthogonal directions and accepting some interference. It pays when features are sparse. Toy Models of Superposition showed dense features keep only the top m, and as sparsity rises the model packs more features in, with geometric arrangements and phase changes. Neurons then become polysemantic, which is why dictionary learning is used.
++ More sparse features than dimensions, stored in almost-orthogonal directions. Neurons become polysemantic, so you learn an overcomplete dictionary.
+- Superposition means tying the embedding to the unembedding. Toy models showed it only happens with dense features.
+- Superposition is dropout: randomly dropping dimensions. It makes every neuron monosemantic.
+- Features must be orthogonal and one per neuron. Toy models showed extra features are always dropped, never packed.
+
+=== llm-p7-07
+G sae-sparse
+W An SAE maps an activation x to a wider sparse code f = ReLU(W_enc (x - b_dec) + b_enc), then reconstructs x_hat = W_dec f + b_dec, with unit-norm decoder columns. The loss is reconstruction MSE plus an L1 term on f that encourages only a few features to fire, which is what pushes features toward a single meaning.
++ f = ReLU(W_enc (x - b_dec) + b_enc), x_hat = W_dec f + b_dec, loss = MSE + lambda L1 on f. The dictionary is overcomplete and the decoder columns are unit-norm.
+- An SAE is a PCA of the residual stream with no sparsity term. The hidden size must be smaller than d.
+- The encoder is a softmax over d features, and the loss is only cross-entropy on tokens, with no reconstruction.
+- SAEs replace the MLP during training, with a tied unembedding as the decoder and no L1 penalty.
+
+=== llm-p7-08
+W Towards Monosemanticity trained SAEs on the 512-neuron MLP of a one-layer transformer, with dictionaries from 512 up to around 131k features. Many features were much more monosemantic than neurons, interventions changed outputs in the expected direction, larger dictionaries split broad features into finer ones, and some features recurred across seeds. Later work scaled this idea to much larger models.
++ One-layer model, 512-neuron MLP, SAEs up to about 131k features: more monosemantic than neurons, feature splitting, and interventions that match the interpretation.
+- They only trained SAEs on GPT-4 with a dictionary of size 512, and found no monosemantic features.
+- The paper showed that neurons were already monosemantic, so SAEs were unnecessary.
+- Feature splitting means the SAE failed. The only valid dictionary size is exactly 512, one feature per neuron.
+
+=== llm-p7-09
+W Judge an SAE on L0 (how many features fire), reconstruction or variance explained, and especially CE loss recovered when you splice the reconstruction back into the model. Plot the L0 vs loss-recovered frontier. Also look at whether features make sense and whether interventions work. Dead features never fire; dense features fire too often. Both are training problems, not a success.
++ Report L0, variance explained, and CE loss recovered when the SAE is spliced in, plus the L0 vs loss frontier. Watch for dead (never fire) and dense (always fire) features.
+- The only metric that matters is MSE. If MSE is small, the language-model loss cannot get worse.
+- Dead features are the most interpretable ones. Dense features are required for good reconstruction and should be encouraged.
+- L0 should be as high as possible, equal to the dictionary size, so that every feature is used on every token.
+
+=== llm-p7-10
+W L1 shrinks active feature magnitudes (shrinkage) and only indirectly controls L0. TopK keeps the k largest pre-activations, so L0 equals k exactly, with no L1 and no shrinkage. JumpReLU uses a learned threshold per feature and an L0 penalty (used in Gemma Scope). Both replaced plain L1 in a lot of later work, but how useful SAE features are versus simpler probes is still debated.
++ TopK keeps the k largest activations, so L0 is exactly k and there is no L1 shrinkage. JumpReLU uses learned thresholds and an L0 penalty, as in Gemma Scope.
+- TopK and JumpReLU add a stronger L1 term. They were abandoned after Towards Monosemanticity.
+- TopK randomly drops k features, and JumpReLU is a softmax temperature. Neither changes shrinkage.
+- Plain L1 already sets L0 exactly. TopK is only a speed trick and is not used on large models.

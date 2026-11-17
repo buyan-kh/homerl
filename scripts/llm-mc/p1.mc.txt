@@ -1,0 +1,645 @@
+=== llm-fd-01
+G matmul-shapes
+W Matmul contracts the shared dim. (B, T, d) @ (d, h) becomes (B, T, h). The cost is B*T*d*h multiply-adds, which is 2*B*T*d*h FLOPs because each multiply-add is two FLOPs. Leading dims just batch the work. A common mistake is treating the result as (B, T, d, h) or forgetting the factor of 2 when you count FLOPs.
++ Shape (B, T, h), at a cost of B*T*d*h multiply-adds, which is 2*B*T*d*h FLOPs.
+- Shape (B, T, d, h), at a cost of B*T*d*h FLOPs, because W is applied per feature without contracting d.
+- Shape (B, T, d), at a cost of 2*B*T*d FLOPs, because W is applied in place along the last dim.
+- Shape (h, T, B), at a cost of 2*d*h FLOPs, since batch and sequence dims are free.
+
+=== llm-fd-02
+W y = x W + b. Output feature j is the dot product of x with column j of W, plus b_j. A large value means x points the same way as that learned direction, so each unit is a feature detector. Stacking linear layers with no nonlinearity just multiplies the matrices into one linear map, which is why MLPs need activations between layers.
++ Each output is a dot product of x with one column of W, plus a bias, so it measures how much x matches a learned direction. Without a nonlinearity, stacked linear layers collapse to one matrix.
+- Each output is the elementwise product of x and one row of W, so it measures per-feature scale. Stacked linear layers get more expressive even without a nonlinearity.
+- Each output is the cosine distance to a row of W, which is always between 0 and 1. Depth without nonlinearities still helps because the bias terms stack.
+- Each output is a convolution of x with W, so it measures local patterns. Linear layers already provide depth because matrix multiply is nonlinear in the entries of x.
+
+=== llm-fd-03
+W @ contracts a shared dim (matrix multiply). * is elementwise and only broadcasts, so nothing is summed. einsum('btd,dh->bth', x, W) sums the index d that is missing from the output, which is the same as x @ W. Writing * when you meant @ often still runs and silently gives garbage.
++ x @ W contracts the shared dim, x * W is elementwise with broadcasting, and einsum('btd,dh->bth', x, W) is the same as x @ W because d is summed out.
+- All three are the same operation. PyTorch spells matrix multiply in three equivalent ways.
+- x @ W and x * W are both matrix multiply. einsum('btd,dh->bth', x, W) is a permutation of dims with no summing.
+- x @ W is elementwise, x * W contracts the shared dim, and einsum never sums, it only renames axes.
+
+=== llm-fd-04
+G broadcast-bias
+W Broadcasting aligns shapes from the right. (d,) becomes (1, 1, d) and adds the same bias to every token, which is what a bias vector should do. A tensor c of shape (B, d) becomes (1, B, d) against (B, T, d), which only works if B equals T, and then it is still the wrong alignment. Use c[:, None, :] to get (B, 1, d).
++ a + b adds the same (d,) bias to every token. a + c with c of shape (B, d) is the wrong alignment; use c[:, None, :] to make (B, 1, d).
+- a + b adds a different bias per batch item. a + c with c of shape (B, d) broadcasts correctly along T by default.
+- Shapes align from the left, so (d,) becomes (d, 1, 1) and a + b fails unless B equals d.
+- a + b is illegal. You must unsqueeze b to (B, T, d) yourself or PyTorch raises.
+
+=== llm-fd-05
+W Singular values of W are stretch factors along its principal directions. The largest one, the spectral norm, bounds how much W can amplify a vector. In a deep net you multiply many such maps, so typical singular values above 1 make activations and gradients explode, and values below 1 make them vanish. Good init keeps them near 1. Low-rank structure (few large singular values) is also why LoRA can approximate fine-tuning updates.
++ Singular values are per-direction gains. If they drift away from 1 across many layers, signals explode or vanish. Low-rank updates work because fine-tuning changes are often low-rank.
+- Eigenvalues of W must all be positive, or the layer cannot represent features. Singular values only matter for square matrices.
+- Singular values should be much larger than 1 so that features stay sharp. LoRA works because it increases rank as much as possible.
+- Eigenvalues measure data variance, not the weight matrix. Initialization can ignore them because BatchNorm fixes any scale.
+
+=== llm-p1-01
+W The least-squares solution comes from setting the gradient of |Xw - y|^2 to zero, which gives the normal equations X^T X w = X^T y. Geometrically, Xw is the projection of y onto the column space of X, and the residual is orthogonal to every column. In practice use a QR or SVD solver, or gradient descent for huge X. Do not form the explicit inverse, because that squares the condition number.
++ w satisfies X^T X w = X^T y, which projects y onto the columns of X. Compute it with QR, SVD, or lstsq, not an explicit inverse.
+- w = X^-1 y, which you should compute by multiplying the explicit inverse of X for speed.
+- w = X y^T, the outer product of the features and the labels, which is already the projection.
+- w = X^T y, because the residual does not need to be orthogonal when n is larger than d.
+
+=== llm-p1-02
+W Parentheses change which dims you contract first, and the FLOPs follow the intermediate size. (A B) is (T, T), which is huge when T is 8192, so (A B) C costs on the order of T^2 d. A (B C) stays in (d, d) intermediates and costs on the order of T d^2, which is much cheaper when T is much larger than d. Always multiply so the skinny dims meet first.
++ (A B) C builds a huge (T, T) intermediate and costs about 2 T^2 d FLOPs. A (B C) stays in (d, d) intermediates and costs about 2 T d^2, which is far cheaper when T >> d.
+- Both associations cost the same, because matrix multiply is associative and FLOPs do not care about grouping.
+- (A B) C is cheaper because you should always multiply left to right.
+- A (B C) is illegal: B C has incompatible shapes, so only (A B) C can run.
+
+=== llm-fd-06
+W For y = f(g(x)), dy/dx = f'(g(x)) * g'(x). Backprop walks the graph backward and multiplies each local derivative by the upstream gradient, which is exactly this chain rule at every node. Forward mode would also work, but reverse mode reuses one backward pass for every input, which is why we use it when we have many parameters and one scalar loss.
++ The chain rule says dy/dx = f'(g(x)) * g'(x). Backprop applies that at every node, going backward from the loss so one pass gives every parameter gradient.
+- The chain rule only applies to one-variable functions, so backprop uses finite differences instead.
+- Backprop differentiates forward from the inputs, which is cheaper than reverse mode when there are millions of parameters.
+- y = f(g(x)) has derivative f'(x) * g'(x). Backprop ignores the inner value g(x) and only uses the outer function.
+
+=== llm-fd-07
+W y = x W, so each output is a linear map of x. The incoming gradient G = dL/dy has shape (n, h). Then dL/dW = x^T G, shape (d, h), and dL/dx = G W^T, shape (n, d). A reliable check is that the shapes must match the original tensors, and the contracted dim is the one that is not in the result.
++ dL/dW = x^T G, shape (d, h). dL/dx = G W^T, shape (n, d).
+- dL/dW = G x^T, shape (h, n). dL/dx = W G, shape (d, h).
+- dL/dW = x G, shape (n, d, h). dL/dx = G, because x is an input and has no gradient.
+- dL/dW = G^T x, shape (h, n). dL/dx = W^T G^T, shape (d, h).
+
+=== llm-nn-01
+W L = (w*x + b - y)^2. With w=2, x=3, b=1, y=5, the prediction is 7 and L = (7-5)^2 = 4. Let u = w*x + b - y = 2. dL/du = 2u = 4, dL/dw = 4*x = 12, dL/db = 4. The forward values matter because local derivatives are evaluated at the current point.
++ L is 4, dL/dw is 12, and dL/db is 4.
+- L is 4, dL/dw is 4, and dL/db is 4, because the 2 from the square cancels the x=3.
+- L is 2, dL/dw is 6, and dL/db is 2, using dL/du = u instead of 2u.
+- L is 16, dL/dw is 24, and dL/db is 8, from treating the residual as 4 instead of 2.
+
+=== llm-nn-02
+W An add node routes the same upstream gradient to both inputs. A multiply node swaps the other input: d(ab)/da = b, so each side is scaled by the other value. A max node sends the gradient only to the argmax input and zero to the rest. A fan-out, or copy, node sums the incoming gradients from every use, because each use is a separate path in the chain rule.
++ Add copies the upstream gradient to both inputs, multiply swaps the other input as the local scale, max routes only to the winner, and a copy (fan-out) sums gradients from every use.
+- Add splits the gradient in half, multiply copies it unchanged, max routes it to every input, and a copy node divides by the number of uses.
+- Every node just copies the upstream gradient, because the chain rule does not depend on the local operation.
+- Add zeros the gradient, multiply squares it, max keeps it, and a copy node takes the max of the incoming gradients.
+
+=== llm-nn-03
+W Each node's backward uses its saved forward values and the already-computed gradients of its outputs. If you visit a node before its consumers have run backward, those upstream gradients are not ready, so you would use zeros or stale values. Reverse topological order guarantees every output has already contributed. That is also why cycles are forbidden in autograd graphs.
++ You must finish backward on every consumer first, so the upstream gradient is complete before a node uses it. Reverse topological order guarantees that.
+- Any order works, because addition is commutative, so autograd can visit nodes at random.
+- You must visit nodes in the same order as the forward pass, otherwise saved values are overwritten.
+- Topological order only matters for the forward pass. Backward can be a simple Python loop over parameters.
+
+=== llm-nn-04
+W Gradients vanish when a long product of derivatives is much less than 1, which happens with saturating activations like sigmoid or tanh, and with poorly scaled init. The three design choices that mostly fixed it are ReLU-style activations, residual connections, and normalization layers (plus better init). Residuals give the gradient a path of 1s around each block.
++ Gradients shrink as they are multiplied through many layers. ReLU-style activations, residual connections, and normalization (with careful init) are what mostly fixed it.
+- Gradients vanish only when the learning rate is too high. The fix is to use a smaller LR and no residuals.
+- Vanishing gradients are caused by dropout. The fix is to remove regularization and train longer.
+- They vanish only in RNNs, never in transformers, so modern LLMs do not need residuals or norms for this reason.
+
+=== llm-nn-05
+W Gradient checking compares your analytic backward pass to a numerical finite-difference estimate, usually in float64 on a tiny batch. It is worth doing whenever you write a backward yourself (custom kernels, new losses, hand-written layers). Once a layer matches, you can trust autograd and stop checking every step, because finite differences are too slow for daily training.
++ Compare analytic gradients to finite differences on a small float64 example whenever you write a backward yourself. It is a check, not a training method.
+- Run finite differences every training step instead of backprop, because they are more accurate.
+- Gradient checking is only for linear layers. Nonlinearities cannot be checked numerically.
+- If the training loss goes down, the backward pass must be correct, so checking is unnecessary.
+
+=== llm-p1-03
+W A micrograd Value stores the data, the gradient, the local backward hook, and pointers to its parents. tanh(x) saves the output t, and its backward is out.grad * (1 - t^2), which is the derivative of tanh. Gradients start at 0 and are accumulated with += because a Value can be used more than once (fan-out). After an update you must zero grads before the next backward, or they keep adding.
++ Value holds data, grad, a backward hook, and parent links. tanh backward is out.grad * (1 - t^2). Use += because values can fan out, then zero grads each step.
+- Value only stores data. Gradients are recomputed from scratch with finite differences after every forward.
+- tanh backward is out.grad * t, and grads are overwritten with = so fan-out automatically stays correct.
+- Value stores data and weight, but not parents. Zeroing grads is optional if you lower the learning rate.
+
+=== llm-fd-08
+G grad-descent
+W The gradient is the direction in which the function increases fastest. Gradient descent therefore steps in the opposite direction, -lr * grad. The learning rate is the step size, not a magic "speed of learning" knob: too large and you overshoot or diverge, too small and training crawls. The path should go downhill on the loss surface.
++ The gradient points to steepest ascent, so we step the other way. The learning rate is the step size along that direction.
+- The gradient points to steepest descent already, so we step along +lr * grad. The learning rate only affects regularization.
+- The gradient is a second derivative (curvature). The learning rate is the momentum coefficient.
+- The gradient is random noise used to escape saddles. The learning rate sets the batch size.
+
+=== llm-fd-09
+W softmax(z)_i = exp(z_i) / sum_j exp(z_j). Subtracting max(z) before the exp does not change the result, because a constant shift cancels in the ratio, but it stops exp from overflowing when logits are large. Never skip that shift in a hand-written softmax.
++ softmax(z)_i = exp(z_i) / sum exp(z_j). Subtracting max(z) is a no-op for the result and prevents exp overflow.
+- softmax uses exp(-z_i) in the numerator. Subtracting max(z) would change the probabilities, so you should not do it.
+- softmax is z_i / sum z_j, and you subtract the mean rather than the max.
+- softmax is a sigmoid on each logit independently. Subtracting max(z) zeros the largest class.
+
+=== llm-fd-10
+W For softmax plus cross-entropy with a one-hot target, the gradient with respect to the logits is p - y, the predicted probabilities minus the one-hot label. If the loss is a mean over N examples, divide by N. You should almost never implement softmax and cross-entropy as two separate backward passes, because the combined form is simpler and more stable.
++ The logit gradient is p - y, or (p - y)/N if the loss is a mean over the batch.
+- The logit gradient is y - p, the opposite sign, because loss decreases as p gets closer to y so we add it.
+- The logit gradient is p * (1 - p), like a sigmoid, and it does not depend on the label.
+- The logit gradient is -log(p_y), a scalar, which is then broadcast to every logit.
+
+=== llm-fd-11
+W At random init, the model should be close to uniform over the vocab, so the cross-entropy is about log(V). For V = 50257 that is about 10.8. A much lower starting loss usually means a target leak or an accidental data issue. A much higher one often means a softmax or label bug.
++ About log(50257) ≈ 10.8, the loss of a uniform guess over the vocab. Far below that at step 0 is a red flag.
+- About 0, because a randomly initialized network has not made any errors yet.
+- About 1.0, the default PyTorch cross-entropy at init for any vocab size.
+- About 50,257, one per vocab entry, and it should fall toward log(V).
+
+=== llm-fd-12
+W Maximum likelihood says: pick the parameters that make the observed data most probable. For next-token prediction, the data likelihood is the product of p(token_t | previous tokens). Taking a negative log turns that product into a sum of -log p(token_t), which is cross-entropy. So minimizing cross-entropy is MLE for the autoregressive distribution.
++ MLE maximizes the probability of the observed tokens. The negative log of that product is the cross-entropy next-token loss, so they are the same objective.
+- MLE maximizes accuracy, while cross-entropy minimizes a margin loss. They agree only at the end of training.
+- Cross-entropy is a classification trick that is unrelated to likelihood. LLMs use it only because it is convex.
+- MLE requires a Gaussian noise model. Next-token cross-entropy is a different, non-probabilistic score.
+
+=== llm-fd-13
+W Perplexity is exp(cross-entropy in nats), or 2 to the power of the loss if the loss was in bits. It is the effective number of equally likely tokens the model is choosing among. A loss of 3.0 nats is a perplexity of about 20. When you read a log, perplexity is just a more interpretable transform of the same loss.
++ Perplexity is exp(loss in nats): the effective number of equally likely next tokens. A loss of 3 is a perplexity of about 20.
+- Perplexity is 1 - accuracy, so it is always between 0 and 1.
+- Perplexity is the vocab size minus the loss, and it should grow as the model improves.
+- Perplexity is the raw sum of logits, not a transform of the cross-entropy.
+
+=== llm-ip-06
+CODE
+W Subtract the per-row max before the exp so softmax is stable. Use log-sum-exp for the log probabilities. The gradient of mean cross-entropy is (softmax - one_hot) / N. Forgetting the max, the /N, or using the wrong index into the labels are the usual bugs.
++ def ce_loss_and_grad(z, y):
+    N = z.shape[0]
+    z = z - z.max(axis=1, keepdims=True)
+    logp = z - np.log(np.exp(z).sum(axis=1, keepdims=True))
+    loss = -logp[np.arange(N), y].mean()
+    grad = np.exp(logp)
+    grad[np.arange(N), y] -= 1
+    return loss, grad / N
+- def ce_loss_and_grad(z, y):
+    N = z.shape[0]
+    p = np.exp(z)
+    p = p / p.sum(axis=1, keepdims=True)
+    loss = -np.log(p[np.arange(N), y]).mean()
+    return loss, p
+- def ce_loss_and_grad(z, y):
+    N = z.shape[0]
+    z = z - z.max()
+    p = np.exp(z) / np.exp(z).sum()
+    loss = -np.log(p[y]).mean()
+    return loss, p - y
+- def ce_loss_and_grad(z, y):
+    N = z.shape[0]
+    logp = z - np.log(np.exp(z).sum(axis=1, keepdims=True))
+    loss = -logp[np.arange(N), y].sum()
+    grad = np.exp(logp)
+    grad[np.arange(N), y] -= 1
+    return loss, grad
+
+=== llm-fd-16
+W Plain SGD is w <- w - lr * g. Momentum keeps a velocity: v <- mu * v + g, then w <- w - lr * v, with mu often 0.9. That averages gradients over about 1/(1-mu) steps, so directions that flip sign cancel and consistent directions build speed. It helps in narrow valleys where plain SGD zigzags.
++ SGD: w <- w - lr * g. Momentum: v <- mu * v + g, w <- w - lr * v. Momentum averages recent gradients so zigzag noise cancels and consistent directions go faster.
+- Momentum replaces the gradient with mu * w, so the step ignores g. That is how it avoids valleys.
+- SGD with momentum is w <- w - lr * g / mu. It only changes the effective learning rate, not the direction.
+- Momentum is v <- v + mu * g, w <- w - v, with no learning rate. It is the same as Adam without the second moment.
+
+=== llm-fd-17
+W Adam keeps a first moment m and a second moment v of the gradients. Bias correction divides by (1 - beta^t) because m and v start at 0 and would otherwise be too small at the start. At step 1, m_hat equals g. The update is w <- w - lr * m_hat / (sqrt(v_hat) + eps). LLM runs often use b1=0.9 and b2 around 0.95, lower than the 0.999 default.
++ m and v are exponential averages of g and g^2. Divide by (1 - beta^t) to unbias the zeros at the start, then step with m_hat / (sqrt(v_hat) + eps).
+- Bias correction adds beta^t to the gradient. Without it Adam is identical to SGD with momentum.
+- Adam uses only the second moment, and bias correction is an optional L2 term on m and v.
+- m_hat = m * (1 - b1^t), which shrinks early steps. Typical LLM b2 is 0.9999 for extra stability.
+
+=== llm-fd-18
+W L2 regularization adds lambda * w to the gradient, and in Adam that term then gets divided by sqrt(v_hat), so weights with a large gradient history barely get regularized. AdamW applies decay directly: w <- w - lr * (adam_step + lambda * w). Every weight shrinks at the same relative rate. LLM runs almost always use AdamW, often skip decay on biases and norm gains, and use decay around 0.1.
++ AdamW decays weights directly, separate from the adaptive step. Adam plus L2 bakes decay into the gradient, so it gets rescaled by the adaptive denominator and becomes uneven.
+- They are the same update written two ways. Pick either and the regularization is identical.
+- AdamW removes weight decay entirely. Adam with L2 is the standard for LLMs.
+- AdamW applies decay only to gradients, not to weights. L2 applies decay only to biases and norm gains.
+
+=== llm-fd-20
+G warmup-cosine
+W The usual LLM schedule is a linear warmup from 0 (or a tiny value) to the peak LR, then a cosine decay down to a small floor. Warmup exists because early gradients are noisy and the Adam moments are still biased; a large LR at step 1 can blow up the model. After warmup, cosine slowly shrinks the steps as you settle.
++ Linear warmup to a peak learning rate, then cosine decay to a floor. Warmup protects the run while gradients and Adam moments are still wild.
+- A constant learning rate from step 1, then a sudden drop to zero at the end. Warmup is only for SGD, not AdamW.
+- Cosine warmup from the peak down to zero, then a linear increase. Warmup exists to keep the LR large at the end.
+- Exponential growth of the LR for the whole run. Warmup is the name for the second half, when loss is flat.
+
+=== llm-fd-21
+W Global-norm clipping scales the whole gradient so its L2 norm does not exceed a cap, often 1.0 in LLM runs. If the norm is already below the cap, nothing happens. This stops rare huge gradients from wrecking the weights, especially early or on unstable batches, without changing the direction of the step.
++ If the gradient's L2 norm exceeds a cap, often 1.0, scale the whole gradient down to that cap. The direction stays the same.
+- Clip every individual parameter gradient to the range [-1, 1]. LLM runs typically use a cap of 100.
+- Clip the weights, not the gradients, to norm 1 after each step. That is the default in AdamW.
+- Drop any batch whose loss is above 1.0. That is what people mean by gradient clipping.
+
+=== llm-fd-22
+W For a range of small batch sizes, increasing the batch and scaling the LR (often linearly or with a square-root rule) can keep the same sample efficiency. Past the critical batch size, extra batch size stops helping much: you use more compute per step without a matching gain. The critical size depends on the noise in the gradients and the task.
++ Larger batches are less noisy, so you can raise the LR, but only up to a critical batch size. Past that, more batch mostly wastes compute.
+- Batch size and learning rate are independent. Always keep the LR fixed when you change the batch.
+- The critical batch size is always 1. Any larger batch is strictly worse for LLMs.
+- You should always set batch size equal to the learning rate, in the same numeric units.
+
+=== llm-fd-26
+W Overfitting: train loss keeps falling while val loss rises. Underfitting: both stay high. LLM pretraining on a huge stream is often in the underfitting regime: you do not repeat data much, and val tracks train. After a small SFT or repeated pass you can overfit quickly. Look at both curves, not just the train loss.
++ Overfitting is train down and val up. Underfitting is both high. Pretraining on a huge stream often underfits, while a small repeated SFT set can overfit fast.
+- Overfitting is when val is lower than train. Underfitting is when train is zero. LLMs never overfit.
+- If train loss is smooth, you are underfitting. If it is noisy, you are overfitting, regardless of val.
+- Overfitting and underfitting are the same thing at scale, which is what double descent removed as a concern.
+
+=== llm-fd-27
+W In LLM work you will actually meet: dropout (less common in the biggest models now), weight decay via AdamW, data-side methods (dedup, quality filters), and later RL or preference methods as a different kind of constraint. LayerNorm/RMSNorm are not regularizers in the same sense, though they stabilize training. Use weight decay almost always; use dropout more carefully, and not as a substitute for more data.
++ AdamW weight decay is the default. Dropout shows up in some setups but less in the largest models. Data filtering and dedup are the other regularizers you will actually use.
+- The only regularizer that works for LLMs is dropout of 0.5 on every layer, including norms.
+- LLMs do not use regularization. Weight decay would erase pretraining features.
+- BatchNorm and early stopping are the two regularizers used in GPT-style training.
+
+=== llm-fd-28
+W Bias-variance: a too-simple model underfits (high bias), a too-flexible model can overfit (high variance). Double descent says that as you keep scaling model size or data past the interpolation point, test error can fall again after getting worse, so the old "bigger is always more variance" picture is incomplete. In the LLM regime, bigger plus more data has generally kept helping.
++ High bias is underfitting, high variance is overfitting. Double descent is the surprise that past the interpolation point, scaling can make test error fall again.
+- Double descent means the loss goes down, then up, then you stop. It replaces Adam with SGD.
+- Bias-variance only applies to linear regression. Double descent is an initialization trick.
+- Double descent says you should never go past the interpolation point, because test error only gets worse.
+
+=== llm-fd-29
+W A validation set is for decisions you make during development: early stopping, hyperparameters, which checkpoint to ship. A test set is touched once at the end so that those decisions do not leak. In the LLM era the same idea is "do not tune on the benchmark you report," plus contamination checks, because public test sets often leaked into the pretraining crawl.
++ Val is for tuning and checkpoint choice. Test is a final, rarely touched number. For LLMs, also watch contamination of public benchmarks in the train data.
+- Val and test should be the same set so the number is more stable. Contamination is not a real issue at scale.
+- You only need a test set. Validation is a synonym for training loss on a random batch.
+- Hold out 50% of pretraining tokens as test, and tune hyperparameters on that same split.
+
+=== llm-p1-04
+W A count-based bigram model stores log p(next char | current char) from counts, with some smoothing. Its loss is the average negative log of those bigram probabilities, and it is a strong simple baseline. A one-layer neural net trained on the same next-char task can beat it because it can share strength across contexts instead of treating each bigram independently, but it should start near the same loss if both are well set up.
++ The bigram model uses counts to get p(c2|c1). Its loss is the average -log of those probabilities. A one-layer net can beat it by sharing parameters across contexts.
+- A bigram model has zero loss if the counts are normalized. A neural net cannot beat counts on characters.
+- The bigram loss is the count of unique pairs. A one-layer net only wins if you add attention.
+- The bigram model predicts with p(c1) p(c2), ignoring order. Any neural net will match it exactly.
+
+=== llm-p1-05
+W The Bengio-style MLP embeds each of the last n characters, concatenates the embeddings, and runs a hidden layer plus a softmax over the next character. It captures more context than a bigram, but context is still a fixed window, and compute grows with that window. That is the "context window plus MLP" idea that transformers later replaced with attention over the whole sequence.
++ Embed the last n characters, concat the embeddings, then an MLP and a softmax over the next character. It beats a bigram but is still stuck with a fixed window.
+- It is a transformer with causal attention over the whole file. Makemore part 2 is already GPT.
+- It predicts each character from a bag of words with no order. Embeddings are not used yet in part 2.
+- It is an RNN with a hidden state carried across the file. The MLP is only used for the output head.
+
+=== llm-nn-06
+W ReLU is max(x, 0): simple, but dead units can stay off. GELU is a smooth, slightly leaky version used in GPT-2 and BERT. SwiGLU (and GeGLU) gate two linear projections and are the usual choice in current LLMs, often with a hidden size of about 8/3 d instead of 4d so the parameter count stays similar. Current LLMs mostly use SwiGLU or a close gated variant, not plain ReLU.
++ ReLU is a hard zero cutoff, GELU is a smooth version used in GPT-2, and current LLMs usually use a gated MLP like SwiGLU.
+- Current LLMs still use ReLU everywhere, because GELU and SwiGLU are slower and do not change quality.
+- SwiGLU is a normalization layer, GELU is a dropout variant, and ReLU is only used in vision.
+- GELU replaced SwiGLU in Llama-style models because gating made training unstable.
+
+=== llm-nn-07
+W A standard transformer MLP is two linear layers, d -> 4d -> d, plus the activation, so parameters are 2 * d * 4d = 8 d^2 (ignoring biases). A SwiGLU-style block has three projections (up, gate, down). To keep a similar budget, the hidden size is often about (8/3)d, so 3 * d * (8/3)d = 8 d^2 again. For d=4096, that is about 8 * 4096^2 ≈ 134 million parameters in the MLP of one layer.
++ The usual GELU MLP is 8 d^2 parameters. SwiGLU uses three projections, so the hidden size is often ~8/3 d to stay near the same 8 d^2 budget. For d=4096 that is about 134 million.
+- Both versions have 2 d^2 parameters. For d=4096 that is about 33 million, independent of the activation.
+- SwiGLU always has 12 d^2 parameters, so it is 50% more expensive and is only used in tiny models.
+- The MLP has d^2 parameters because the 4d hidden size cancels. For d=4096 that is 16 million.
+
+=== llm-nn-08
+W If the pre-softmax logits are huge at init, softmax becomes very peaky (almost a one-hot), so gradients through the softmax are tiny. That is output saturation. Dead ReLUs are a related "stuck off" problem: a unit that always outputs 0 gets zero gradient and may never recover. The fix is smaller output-init scales (for example shrinking the last linear), residual+norm, and activations that do not sit in a flat region at init.
++ Huge initial logits make softmax almost one-hot, which kills the gradient. Dead ReLUs are a similar stuck-off problem. Shrink output init and use residual/norm-friendly activations.
+- Softmax saturation at init is good, because the model should be confident. Dead ReLUs are fixed by raising the learning rate.
+- The two problems are unrelated, and softmax cannot saturate if you use LayerNorm anywhere in the model.
+- You should initialize the output layer to very large weights so softmax starts sharp and trains faster.
+
+=== llm-fd-24
+W If weights are too big, activations explode; too small, they vanish. Xavier (Glorot) scales init for tanh/sigmoid by fan-in and fan-out so variance is roughly preserved. Kaiming (He) does the same idea for ReLU, which zeros half the units, so it uses a different factor. The point is to keep activation and gradient scales stable at the start, not to find the final trained weights.
++ Init scale controls whether signals explode or vanish. Xavier is the tanh/sigmoid version, Kaiming is the ReLU version, both aiming to keep variance stable at the start.
+- Initialization scale does not matter once you use Adam, so everyone uses N(0, 1) weights.
+- Xavier and Kaiming are optimizers, not init schemes. They replace SGD after warmup.
+- You should initialize every weight to 1, then let weight decay shrink them. That is Kaiming init.
+
+=== llm-p1-06
+W If a tanh layer is saturated, its activations sit near -1 or 1, and the local gradient 1-t^2 is near 0. Diagnose it by plotting the activation histogram: a U-shape piled at the ends is bad. The usual fix is to scale the pre-activation weights down (for example a gain of 0.5, or the correct Xavier/Kaiming factor) so most values land in the linear middle of tanh.
++ A U-shaped tanh histogram piled at -1 and 1 means saturation and tiny gradients. Scale the incoming weights down so pre-activations sit in the middle.
+- Saturation is diagnosed by a histogram peaked at 0. Fix it by scaling the weights up until outputs hit -1 and 1.
+- If tanh is saturated you should switch the loss, not the init. Weight scale cannot cause this.
+- Tanh cannot saturate if the data is normalized, so a bad histogram always means a bug in the loader.
+
+=== llm-nn-09
+W BatchNorm normalizes across the batch (and spatial) dimension for each feature, and it needs a running mean at eval time. LayerNorm normalizes across the feature dim of each example, with no batch statistics, so it works with batch size 1 and is easier in variable-length sequences. Transformers use LayerNorm (or RMSNorm) for that reason, not BatchNorm.
++ BatchNorm uses batch statistics per feature and a running average at eval. LayerNorm normalizes each example's features, so transformers prefer it (or RMSNorm).
+- LayerNorm normalizes across the batch, and BatchNorm normalizes across features. Transformers use BatchNorm.
+- They are identical operations with two names. Transformers use BatchNorm in the MLP only.
+- LayerNorm requires large batches to estimate the mean. That is why GPT-style models avoid it.
+
+=== llm-p1-07
+W For one BatchNorm feature, you have mean mu and variance var over a batch of N, then y = (x-mu)/sqrt(var+eps) * gamma + beta. Backward has to go through the mean and variance as well as the affine terms, because mu and var depend on every x_i. The gradients are coupled across the batch. That coupling is the part people miss if they treat it like a simple scale-and-shift.
++ You must backprop through the batch mean and variance, not just gamma and beta, so each x_i's gradient depends on the whole batch.
+- BatchNorm backward is only dL/dgamma and dL/dbeta. The input x is treated as a constant, like a stop-gradient.
+- The backward pass is the same as LayerNorm's per-example formula, because mu and var do not depend on other batch items.
+- You can invert BatchNorm with x = y * sqrt(var) and ignore mu, gamma, and beta in the backward.
+
+=== llm-nn-13
+W During training, dropout zeros a random subset of units and scales the rest so the expected value stays the same (most frameworks use inverted dropout: divide by keep probability at train time). At eval, dropout is turned off and the full network runs. The common bug is leaving dropout in train mode at eval, or the reverse, which shifts the activation scale and can look like a mysterious accuracy drop.
++ Train: randomly zero units and scale the rest. Eval: turn dropout off. The classic bug is leaving the module in the wrong train/eval mode.
+- Dropout is applied the same way at train and eval. The common bug is using too small a drop probability.
+- At eval you should drop even more units, because the model is more confident. At train you should not drop.
+- Dropout replaces LayerNorm at eval. The common bug is using it together with residual connections.
+
+=== llm-p1-08
+W The original Transformer (Vaswani et al., 2017) was an encoder-decoder for translation, d_model=512, 8 heads, 6 layers each, residual connections, and (in the original) post-norm. Training used Adam with a warmup-then-decay LR, label smoothing, and dropout. It replaced recurrence with attention. GPT later kept the decoder stack and dropped the encoder for language modeling.
++ Encoder-decoder, d_model 512, 6+6 layers, 8 heads, residuals, Adam with warmup, trained for translation. GPT later kept a decoder-only stack.
+- Decoder-only GPT-3 recipe: 96 layers, no encoder, trained with RMSprop and no warmup.
+- Encoder-only BERT recipe: bidirectional masked LM, no decoder, trained with SGD and a constant LR.
+- A 2-layer LSTM with attention pooling, because "Transformer" originally meant an RNN plus attention.
+
+=== llm-tf-05
+G attention-qk
+W For one head, Q, K, and V are (T, d_k) or batched (B, T, d_k). Scores are Q K^T, shape (T, T), divided by sqrt(d_k), maybe masked, then softmax over keys, then multiplied by V to get (T, d_k). The scale is part of the definition of scaled dot-product attention, not optional decoration.
++ Q, K, V are (T, d_k). Scores Q K^T are (T, T), scale by 1/sqrt(d_k), mask, softmax over keys, then times V to get (T, d_k).
+- Q, K, V are (T, T). Attention is Q + K + V, then a softmax over d_k.
+- Scores are Q * K elementwise, shape (T, d_k), then you concat V. No (T, T) matrix is formed.
+- Softmax is over the head dim, not the keys, and you do not divide by sqrt(d_k) for one head.
+
+=== llm-tf-06
+W If you do not scale, the dot products grow like sqrt(d_k) in variance (assuming roughly unit-scale coordinates). Large scores make softmax very sharp, so gradients get tiny. Dividing by sqrt(d_k) keeps the score variance near 1 and the softmax in a healthy range. That is why it is called scaled dot-product attention.
++ Dot products grow with d_k, which sharpens softmax and kills the gradient. Dividing by sqrt(d_k) keeps the scores in a healthy range.
+- Dividing by sqrt(d_k) is only a performance trick for FlashAttention, and it changes the math.
+- You divide so that the attention weights sum to d_k instead of 1.
+- The scale cancels dropout. Without dropout you should not divide.
+
+=== llm-tf-07
+G causal-mask
+W A causal mask forbids a query at position t from seeing keys after t. You add -inf (or a very large negative) to those future scores before softmax, so their probabilities become 0. If you mask after softmax, the remaining weights no longer sum to 1, and some mass has already been used on the future. Always mask before softmax.
++ Set future scores to -inf before softmax so those probabilities become 0 and the rest still sum to 1. Masking after softmax leaves the weights wrongly normalized.
+- Zero out future weights after softmax. That is enough, because softmax already used only the past.
+- Multiply future scores by 0 before softmax. Softmax of 0 is 0, so the future is blocked.
+- Causal masking is only needed in the encoder. A decoder can attend everywhere because generation is already left to right.
+
+=== llm-tf-08
+W With d_model = 4096 and 32 heads, each head has dimension 4096/32 = 128. The point of several heads is that they can specialize in different relations (syntax, a previous token, a rare entity) in parallel, then concatenate and project back to d_model. Total compute is similar to one big head, but the pattern capacity is higher.
++ Each head has dim 128. Multiple heads let the model learn different relations in parallel, then concat and project back to 4096.
+- Each head has dim 4096, and 32 heads are 32 copies of the full width, so compute grows 32x.
+- Each head has dim 32, because you divide 4096 by 128, not by the head count.
+- Multi-head attention only exists to make the matmul square. One head of dim 4096 is always better.
+
+=== llm-tf-09
+W A standard layout is: project x to QKV with one linear to 3C, reshape to (B, T, 3, n_head, head_dim), split, then transpose to (B, n_head, T, head_dim) for the matmuls. After attention, transpose back and merge heads to (B, T, C), then the output projection. Getting the transpose wrong is a classic silent shape bug.
++ Project to QKV, reshape and transpose to (B, n_head, T, head_dim), attend, then merge heads back to (B, T, C) and project.
+- Apply attention on (B, T, C) with no reshape. Heads are just a loop over the batch dim.
+- Split x into n_head chunks along the batch dim, attend, and add the heads, skipping the output projection.
+- Reshape to (B, n_head, C, T) and attend over C. The time dim should not be in the matmul.
+
+=== llm-tf-10
+W Standard attention compute is O(T^2 d) per layer because of the T x T score matrix, and memory for those scores is O(T^2) per head (before FlashAttention). The MLP is O(T d^2) and does not grow with T^2. So at long context, attention memory and compute dominate; at short context, the MLP and projections can still dominate.
++ Attention is O(T^2 d) compute and O(T^2) score memory, so it dominates at long context. The MLP is O(T d^2) and does not have the T^2 term.
+- Attention is O(T d) like an RNN, so sequence length is almost free. The MLP is the only T^2 cost.
+- Both attention and the MLP are O(T^2 d). FlashAttention removes the compute, not just the memory.
+- Attention memory is O(T) even without a KV cache, because scores are never stored.
+
+=== llm-ip-01
+CODE
+G causal-mask
+W Build Q, K, V, split heads, scale, add a causal -inf mask, softmax, times V, merge heads, and project. The usual bugs are a missing or wrong mask, scaling after softmax, or a bad transpose that mixes head and time dims.
++ q, k, v = self.qkv(x).split(self.d, dim=-1)
+q, k, v = [t.view(B, T, self.nh, self.hd).transpose(1, 2) for t in (q, k, v)]
+att = (q @ k.transpose(-2, -1)) * (self.hd ** -0.5)
+att = att.masked_fill(~self.mask[:T, :T], float("-inf"))
+y = (att.softmax(-1) @ v).transpose(1, 2).contiguous().view(B, T, self.d)
+return self.proj(y)
+- q, k, v = self.qkv(x).split(self.d, dim=-1)
+att = (q @ k.transpose(-2, -1)).softmax(-1) * (q.size(-1) ** -0.5)
+return self.proj(att @ v)
+- q, k, v = self.qkv(x).chunk(3, dim=0)
+att = (q @ k.transpose(-2, -1))
+att = att.masked_fill(self.mask[:T, :T], 0)
+y = att.softmax(-1) @ v
+return y
+- q = k = v = x
+att = (q @ k.transpose(-2, -1))
+y = att @ v
+return self.proj(y)
+
+=== llm-tf-11
+W Attention is permutation-invariant: without position info, shuffling the tokens would give the same set of representations (up to order). Language depends on order, so you have to inject position, through absolute embeddings, RoPE, ALiBi, or something similar. Content alone is not enough.
++ Attention has no sense of order on its own. You have to add position information or the model cannot tell "dog bites man" from the reverse.
+- Attention already includes the index t in the softmax, so positional embeddings are only a speed hack.
+- Positional information is only needed in the tokenizer, not in the model.
+- Transformers get order from residual connections, so dropping positions does not change quality.
+
+=== llm-tf-12
+W Sinusoidal positions (the original paper) are fixed functions of pos and dim, with different wavelengths, which can in principle generalize a bit beyond the train length. Learned absolute embeddings are a table of size (max_len, d) trained with the model, and they do not automatically extend past max_len. Both add (or concat) a position vector to the token embedding. RoPE later became the more common relative method.
++ Sinusoids are fixed functions of position and dim. Learned absolutes are a table up to max_len. Both supply a position vector; neither is RoPE.
+- Learned embeddings are computed from sin and cos at each step. Sinusoids are a trained table of size (vocab, d).
+- Both methods are relative and do not depend on absolute index. That is why they extrapolate perfectly.
+- Sinusoidal and learned positions are only used in the encoder. Decoders get order from the causal mask alone.
+
+=== llm-nn-12
+G residual-stream
+W The residual stream is the running sum that flows down the stack: each block reads from it and writes a delta back, x <- x + F(x). Attention and MLPs are editors of that stream, not a full replacement of the representation. This view makes skip connections, residual-scale init, and "add a direction into the residual" explanations more natural.
++ Each block adds a delta into a running residual stream: x <- x + F(x). Attention and MLPs edit that stream rather than replacing it.
+- The residual stream is the attention score matrix, recomputed from scratch each layer.
+- Residual connections replace LayerNorm. The stream is the sequence of LayerNorm scales.
+- Each layer overwrites x entirely with F(x). The "residual" is just the name of the MLP hidden state.
+
+=== llm-tf-15
+G transformer-block
+W Start with token ids, look up embeddings, add positions (or apply RoPE later in attention). Then for each block: pre-norm, causal self-attention, residual, pre-norm, MLP, residual. Finally a norm and the unembedding to vocab logits. That is the GPT-2 style decoder forward pass.
++ Embed ids, add positions, then a stack of pre-norm causal attention + residual and pre-norm MLP + residual, then a final norm and unembed to logits.
+- Run a bidirectional encoder over the whole sequence, then a separate decoder that can see the future during training.
+- Look up embeddings, apply an MLP over the vocab, and skip attention if the context is already in the embedding.
+- Use post-norm RNNs with no residuals, then a CRF over the tokens. That was GPT-2's official stack.
+
+=== llm-tf-26
+W Encoder-only (BERT-style) is bidirectional and great for understanding tasks, but it does not naturally generate left to right. Encoder-decoder is the original translation setup and is still used in some seq2seq models. Decoder-only models train on a simple next-token objective, scale cleanly, and can still do many "understanding" tasks in-context. That simplicity plus scale is why they won for general LLMs.
++ Decoder-only next-token training scales simply and can still do in-context tasks. Encoder-only is bidirectional but awkward for generation, and encoder-decoder is heavier than it needs to be for a general LLM.
+- Encoder-only models won for LLMs, which is why GPT-4 is a BERT variant.
+- Decoder-only models cannot condition on a prompt, so production LLMs are all encoder-decoder.
+- The three families are equivalent once you add a causal mask, so the choice was only marketing.
+
+=== llm-ip-09
+G loss-leak
+W A small GPT on web text should sit around a loss of about 3, not 0.1, after a few hundred steps. A collapse that fast almost always means the answer is leaking: a missing causal mask, unshifted targets (predicting the current token), or eval contamination on a tiny set. Test it by changing a future token and checking that past predictions do not move.
++ That loss is impossibly low for web text. The model is probably seeing the answer, often from a bad causal mask or unshifted targets.
+- 0.1 is a normal web-text loss for a small GPT, so training is healthy.
+- The run is underfitting, and you should raise the learning rate until the loss hits 0.1 even faster.
+- Loss 0.1 means the vocab is too small. Increase V and the loss will return to 10.8.
+
+=== llm-tf-01
+W Start with characters: a a a b d a a a b a c. The most frequent pair is "aa", so merge it first, then continue with the new counts. After three merges you get a short list of merge rules and a compressed sequence in terms of those new tokens. The exact final sequence depends on always merging the current most frequent pair and breaking ties consistently.
++ Run three greedy most-frequent-pair merges starting from characters. The first merge is "aa", then you recompute counts and merge the new top pair twice more.
+- Merge the rarest pairs first, so "dc" and "bc" get merged before "aa". BPE always starts with the rarest pair.
+- After one merge of the whole string into a single token, stop. Three merges would overfit.
+- BPE on this string has no valid merges because the characters are not in a fixed vocab yet.
+
+=== llm-tf-02
+W Byte-level BPE starts from bytes, so any Unicode string can be encoded with no unknown token. The pre-tokenization regex splits on things like spaces, punctuation, and letter or digit runs before merges, which keeps words from blending across spaces and makes the learned merges cleaner. Without that split, BPE would waste merges on "the " vs "the".
++ Bytes mean there is no UNK. The regex pre-tokenizer splits on spaces and punctuation first so merges do not glue words together for the wrong reasons.
+- Byte-level BPE is only for ASCII. The regex is used at decode time to insert spaces, not at train time.
+- GPT tokenizers start from Unicode code points, not bytes, and they skip pre-tokenization to keep words intact.
+- The regex is a compression codec unrelated to BPE. Byte-level just means the vocab size is 256.
+
+=== llm-tf-03
+W Classic tokenization glitches: poor arithmetic because digits are split oddly, unexpected sensitivity to leading spaces, "solid" vs " solid" as different tokens, weak spelling or letter-level tasks, and weird behavior on languages or code that were rare in the tokenizer's train set. If a failure disappears when you spell the input differently, suspect the tokenizer first.
++ Odd digit splits, leading-space sensitivity, and weak letter-level or multilingual behavior are often tokenizer problems, not "reasoning" failures.
+- Tokenization only affects speed, never model behavior, because the model sees raw characters anyway.
+- The only tokenization problem is OOV words, and byte-level BPE already removed every behavioral issue.
+- If a model fails arithmetic, the tokenizer cannot be the cause, because numbers are always one token each.
+
+=== llm-tf-04
+W A larger vocab, like 128K vs 32K, makes sequences shorter (better compute per word, especially for some languages and code) but makes the embedding and unembedding matrices bigger, and each token is seen less often so rare-token quality can suffer. You also pay more at the softmax. It is a tradeoff, not a free upgrade.
++ 128K shortens sequences and can help some languages and code, but the embedding tables grow and rare tokens get less practice. 32K is smaller and more statistically dense.
+- Larger vocabs always improve every language with no downside, which is why 32K is obsolete.
+- 128K is strictly worse because a bigger softmax is always slower and quality never improves.
+- Vocab size only changes decode speed, not training compute or embedding parameters.
+
+=== llm-ip-02
+CODE
+W Training repeatedly finds the most frequent adjacent pair and merges it, recording the merge in order. Encoding applies those merges in the same rank order, lowest rank first, not "most frequent in this new string first". Starting from bytes, not characters, is what makes it byte-level.
++ def train_bpe(text, num_merges):
+    ids = list(text.encode("utf-8"))
+    merges = {}
+    for i in range(num_merges):
+        counts = Counter(zip(ids, ids[1:]))
+        pair = max(counts, key=counts.get)
+        new_id = 256 + i
+        ids = merge(ids, pair, new_id)
+        merges[pair] = new_id
+    return merges
+- def train_bpe(text, num_merges):
+    ids = list(text)
+    merges = {}
+    for i in range(num_merges):
+        counts = Counter(zip(ids, ids[1:]))
+        pair = min(counts, key=counts.get)
+        ids = merge(ids, pair, i)
+        merges[pair] = i
+    return merges
+- def train_bpe(text, num_merges):
+    ids = list(text.encode("utf-8"))
+    return { (0, 1): 256 }
+- def train_bpe(text, num_merges):
+    tokens = text.split()
+    return {tok: i for i, tok in enumerate(set(tokens))}
+
+=== llm-tf-13
+G rope-rotation
+W RoPE rotates pairs of Q and K features by an angle that depends on position, with a different frequency per pair. The dot product Q·K then depends on the relative angle, which is the relative position, not just the absolute indices. That is why it gives relative position information without adding a position vector to the embeddings.
++ Rotate Q/K feature pairs by a position-dependent angle. Their dot product then depends on relative position, which is why RoPE is a relative scheme.
+- RoPE adds a learned position vector to the token embedding, just like GPT-2's absolute table.
+- RoPE is a causal mask with sinusoidal entries, and it does not change Q or K.
+- RoPE concatenates a one-hot position id to every token, which gives absolute, not relative, position.
+
+=== llm-ip-05
+CODE
+G rope-rotation
+W RMSNorm is x * rsqrt(mean(x^2) + eps) * g, with no mean subtraction (that is the difference from LayerNorm). RoPE builds frequencies theta_i and rotates even/odd feature pairs of Q and K by pos * theta_i. Common bugs: subtracting a mean in RMSNorm, using sin/cos on the wrong dim, or rotating V as well when the recipe does not.
++ class RMSNorm(nn.Module):
+    def __init__(self, d, eps=1e-6):
+        super().__init__()
+        self.eps = eps
+        self.g = nn.Parameter(torch.ones(d))
+    def forward(self, x):
+        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.g
+- class RMSNorm(nn.Module):
+    def forward(self, x):
+        mu = x.mean(-1, keepdim=True)
+        return (x - mu) / (x.std(-1, keepdim=True) + 1e-6)
+- class RMSNorm(nn.Module):
+    def forward(self, x):
+        return F.layer_norm(x, x.shape[-1:])
+- class RMSNorm(nn.Module):
+    def forward(self, x):
+        return x / x.abs().max()
+
+=== llm-tf-16
+W Weight tying shares the input embedding matrix with the output unembedding (the vocab projection). That cuts a large parameter table, which helps small models a lot. Bigger models often leave them untied, because the extra parameters can be worth it and input vs output roles are not identical.
++ Tying shares the token embedding with the output vocab projection, saving a big table. Small models usually tie; many large models do not.
+- Weight tying shares Q and V projections. It is required in every GPT-2 or Llama model, including the 70B class.
+- Weight tying means tying all residual blocks to one set of weights, like an RNN. Vocab tables stay separate.
+- Tying is a tokenizer trick, not a model parameter trick, and it does not change the count.
+
+=== llm-tf-17
+W GPT-2 small: token embeddings are V * d ≈ 50257 * 768, and they are tied with the output, so you do not count that table twice. Positions add 1024 * 768. Each of the 12 layers has attention (about 4 d^2) and an MLP (8 d^2), plus small LayerNorms. The official count is about 124 million. A common error is double-counting the tied unembedding or forgetting the MLP's 8 d^2.
++ About 124 million. Count tied embeddings once (V*d), add position embeddings, then 12 layers of about 4d^2 attention and 8d^2 MLP, plus norms.
+- About 38 million, because you only count the 12 attention projections and skip the MLP and embeddings.
+- About 500 million, from counting the tied unembedding a second time and using 4d for every projection twice.
+- About 12 million: 12 layers times a 1 million parameter block, with embeddings ignored.
+
+=== llm-tf-18
+W Llama 2 7B: 32 layers, d=4096, SwiGLU hidden 11008, vocab 32,000, untied output. Attention is about 4 d^2 per layer, the SwiGLU MLP is 3 * d * 11008, plus embeddings (and a separate unembed). The pieces add up to about 7 billion. If you used a 4d GELU MLP instead, or forgot the third SwiGLU matrix, you would land far from 7B.
++ About 7B: 32 layers of 4d^2 attention plus a 3*d*11008 SwiGLU MLP, with untied vocab tables of 32000*d.
+- About 1B, because SwiGLU hidden 11008 is small enough that the MLP is cheaper than attention.
+- About 70B, if you treat hidden 11008 as 4d and also double-count 64 layers.
+- About 7B only if embeddings are tied. With an untied head the same config would be 14B.
+
+=== llm-tf-21
+G kv-cache
+W During generation, keys and values for past tokens do not change. A KV cache stores them so each new token only computes its own Q, K, and V and attends against the cached past, instead of rerunning attention over the whole prefix. Prefill still processes the prompt in one go. This drops per-token attention work from O(T^2) to O(T) with the cache.
++ Cache past keys and values. Prefill the prompt once, then each new token only computes the new slice and attends to the cache, which is why decode is much faster.
+- The KV cache stores past logits so you can skip the unembedding. It does not change attention compute.
+- The KV cache is a disk cache of the training set, used to skip tokens the model has already seen.
+- With a KV cache you can skip the MLP on past tokens and also drop positional offsets, which is the usual implementation.
+
+=== llm-ip-04
+CODE
+G kv-cache
+W Prefill the prompt once, then feed only the new token while the model appends to the K/V cache. Positions must be offset by the cache length, or RoPE/absolute positions repeat at 0 and quality collapses. Sample from the last logit after temperature and top-k. The classic bug is re-feeding the whole sequence every step while also writing the cache, or forgetting the position offset.
++ logits, cache = model(x, cache=cache)
+logits = logits[:, -1, :] / temperature
+kth = torch.topk(logits, top_k).values[:, -1:]
+logits = logits.masked_fill(logits < kth, float("-inf"))
+next_id = torch.multinomial(logits.softmax(-1), 1)
+x = next_id
+- logits = model(x)
+next_id = logits[:, 0, :].argmax(-1, keepdim=True)
+x = torch.cat([x, next_id], dim=1)
+- logits, cache = model(x, cache=cache)
+next_id = logits[:, -1, :].argmin(-1, keepdim=True)
+x = torch.cat([x, next_id], dim=1)
+- logits, cache = model(ids, cache=None)
+next_id = torch.randint(0, vocab, (B, 1))
+x = next_id
+
+=== llm-p1-09
+W The 124M reproduction is: match the GPT-2 small architecture, train on a large open web dataset (often FineWeb or OpenWebText), and get close to the reported loss or downstream numbers. The speedups that matter are packed sequences, a compiled or fused training loop, good data loading, bf16 or fp16, and attention implementations that do not materialize huge score matrices. A faithful loss curve is the goal, not just a toy Shakespeare run.
++ Train a GPT-2 small from scratch on a large web corpus and match the loss. The speedups that matter are packed data, compile/fusion, mixed precision, and efficient attention, not a tiny Shakespeare demo.
+- Load official GPT-2 weights and only fine-tune the last layer on Shakespeare. Speedups do not matter at 124M.
+- The reproduction is a character RNN with 124 million steps, not parameters. Attention is optional.
+- You only need to match the parameter count, not the loss. Any 124M model counts as a reproduction.
+
+=== llm-p1-10
+W CS336 assignment 1 has you implement the core pieces yourself: tokenizer, model (attention, norms, and so on), a training loop, and often a formal experiment write-up, with tests you must pass. You are not allowed to just wrap Hugging Face transformers or copy a hidden official solution. The point is to build and measure a small LM from primitives.
++ Build the tokenizer, model, and training loop yourself and pass the official tests. Wrapping a pretrained Hugging Face model as the solution is not allowed.
+- Fine-tune a released GPT-2 with TRL and submit the trainer logs. Custom kernels are required, a tokenizer is not.
+- Only write the paper, not the code. The assignment provides a private trained model.
+- You must implement a full MoE at billion-parameter scale. A small Transformer is not accepted.
+
+=== llm-ip-03
+CODE
+G warmup-cosine
+W Set the LR each step from a warmup-plus-cosine schedule, zero grad, accumulate loss/accum under autocast, unscale and clip, then step. The usual bugs are applying the cosine during warmup, clipping before unscale, or forgetting to divide the loss by the accumulation count.
++ for step in range(max_steps):
+    for g in opt.param_groups:
+        g["lr"] = get_lr(step)
+    opt.zero_grad(set_to_none=True)
+    for _ in range(accum):
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            loss = model(x, y) / accum
+        scaler.scale(loss).backward()
+    scaler.unscale_(opt)
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    scaler.step(opt)
+    scaler.update()
+- for step in range(max_steps):
+    loss = model(x, y)
+    loss.backward()
+    opt.step()
+- for step in range(max_steps):
+    opt.zero_grad()
+    with torch.autocast("cuda", dtype=torch.float32):
+        loss = model(x, y) * accum
+    loss.backward()
+    opt.step()
+- for step in range(max_steps):
+    get_lr(step)
+    loss = model(x, y)
+    scaler.step(opt)
+    scaler.scale(loss).backward()
+
+=== llm-p1-11
+CODE
+W A correct AdamW optimizer stores m and v, applies bias correction, steps with m_hat / (sqrt(v_hat)+eps), then applies decoupled weight decay as p.add_(p, alpha=-lr*wd) (or equivalent) on the weights that should decay. You should not fold wd into the gradient before the adaptive denom. Skipping decay on the right tensors can be handled by param groups.
++ # inside AdamW.step, after moments and bias correction:
+p.addcdiv_(m_hat, v_hat.sqrt().add_(eps), value=-lr)
+if wd != 0:
+    p.add_(p, alpha=-lr * wd)
+- # Adam with L2 folded into the gradient, then no extra decay:
+g = g + wd * p
+p.addcdiv_(m, v.sqrt(), value=-lr)
+- p.add_(g, alpha=-lr)
+p.mul_(1.0 - wd)
+- m = g
+v = g * g
+p.add_(m / (v + eps), alpha=-lr * wd)
+
+=== llm-p1-12
+W Memory-map or shard the token file (for example memmap a uint16/uint32 array of token ids), then sample random contiguous slices for each batch. Do not read the whole multi-gigabyte file into a Python list. Prefetch in a DataLoader or a background process so GPU steps are not stuck on disk. Shuffle by choosing random start offsets, not by loading everything and calling shuffle.
++ Memory-map or shard the token-id array and sample random slices. Do not load the whole corpus into RAM, and prefetch so the GPU does not wait on disk.
+- Read the entire token file into a Python list of ints at startup, then shuffle it in memory each epoch.
+- Parse raw text in the training loop and retokenize every batch from scratch, so you never store tokens.
+- Store each document as its own tiny file on disk and open a new file for every training token.

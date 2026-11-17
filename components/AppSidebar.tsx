@@ -34,6 +34,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getCourse, listCourses } from "@/lib/decks";
+import { deckIsMultipleChoice } from "@/lib/quiz";
 import { deckStats } from "@/lib/scheduler";
 import { clearMemory, loadMemory } from "@/lib/storage";
 import { clearAllLcProgress } from "@/lib/leetcode-progress";
@@ -178,7 +179,11 @@ export function AppSidebar() {
                                 >
                                   <span className="flex min-w-0 items-center gap-1.5">
                                     <span className="truncate">{section.title}</span>
-                                    {section.kind === "book" ? (
+                                    {deckIsMultipleChoice(section.questions) ? (
+                                      <span className="shrink-0 rounded-sm bg-sidebar-accent px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/70">
+                                        MC
+                                      </span>
+                                    ) : section.kind === "book" ? (
                                       <span className="shrink-0 rounded-sm bg-sidebar-accent px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/70">
                                         Book
                                       </span>

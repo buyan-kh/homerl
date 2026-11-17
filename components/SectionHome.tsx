@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { getCourse, type DeckDefinition } from "@/lib/decks";
+import { deckIsMultipleChoice } from "@/lib/quiz";
 import { getServerMemory, loadMemory, subscribeMemory } from "@/lib/storage";
 import { StudyProgressBar } from "@/components/StudyProgressBar";
 import { CONTENT_LIST } from "@/lib/content-layout";
@@ -29,7 +30,11 @@ function SectionRow({ section }: { section: DeckDefinition }) {
     >
       <span className="flex items-center gap-2 font-mono text-xs text-stone-500">
         /{section.slug}
-        {section.kind === "book" ? (
+        {deckIsMultipleChoice(section.questions) ? (
+          <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            MC
+          </span>
+        ) : section.kind === "book" ? (
           <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Book
           </span>

@@ -1,0 +1,326 @@
+=== llm-nn-10
+W RMSNorm is x * rsqrt(mean(x^2)+eps) * g. It drops LayerNorm's mean subtraction and, usually, the bias. It is cheaper and has been quality-neutral enough that most modern LLMs use it.
++ RMSNorm is LayerNorm without centering (and usually without a bias). It is cheaper and quality is close enough that most LLMs switched.
+- RMSNorm adds a second mean subtraction and a bias, which is why it is more expensive and used only in tiny models.
+- RMSNorm is a residual connection around LayerNorm. It did not replace LayerNorm in Llama-style models.
+- RMSNorm normalizes across the batch, like BatchNorm, which is why it replaced LayerNorm in training but not at inference.
+
+=== llm-nn-11
+G prenorm-vs-postnorm
+W Pre-norm is x + f(Norm(x)). Post-norm is Norm(x + f(x)). Modern LLMs use pre-norm (or close variants) because the residual path stays a clean identity, which trains stably when the stack is deep. Post-norm needs more warmup care at the output.
++ Pre-norm is x + f(Norm(x)), which keeps a clean residual path and is what modern LLMs use. Post-norm is Norm(x + f(x)).
+- Post-norm is x + f(Norm(x)), and it is the default in Llama and GPT-2 style models because it needs no warmup.
+- Modern LLMs use post-norm only, and pre-norm is considered outdated after 2017.
+- Pre-norm and post-norm are the same when you use RMSNorm, so the placement does not matter.
+
+=== llm-p3-01
+W Xiong et al. 2020 showed that Post-LN has very large gradients near the output at initialization, so warmup is basically required. Pre-LN gradients are better behaved, and warmup is optional. That is a main reason pre-norm became the default.
++ Post-LN has large gradients near the output at init, so warmup is required. Pre-LN is better behaved, and warmup is optional.
+- Pre-LN is unstable at init and always needs a long warmup. Post-LN trains stably from step 1.
+- They found no difference at init. The only issue was the learning rate, not the residual placement.
+- Post-LN shrinks gradients to zero at the output, which is why it does not need warmup.
+
+=== llm-p3-02
+G residual-stream
+W A plain pre-norm stack is a unit-weight sum of every layer's write into the residual. As depth grows, each new layer is a smaller fraction of the total, so later layers can get diluted. Attention Residuals and related ideas replace that fixed sum with a learned or attention-weighted combination of earlier outputs.
++ The residual is a unit-weight sum of all layer outputs, which grows with depth and can dilute later layers. AttnRes replaces that plain sum.
+- PreNorm makes later layers dominate the residual, which is the bug AttnRes fixes by deleting residuals.
+- There is no known cost of PreNorm. AttnRes is only a faster attention kernel, not a residual change.
+- PreNorm zeros the residual path, so depth cannot grow. AttnRes adds BatchNorm to each skip.
+
+=== llm-pt-21
+W QK-norm applies a normalization (often RMSNorm) to Q and K before the dot product, which keeps attention logits from exploding and the softmax from saturating. It is a cheap stability trick used in several modern recipes, including some speedrun and long-context stacks.
++ Normalize Q and K before the dot product so attention logits stay bounded and softmax does not saturate.
+- QK-norm is a dropout on attention scores. It is used to increase entropy, not to bound logits.
+- It normalizes V only, which stops the residual stream from growing, and it is unrelated to softmax.
+- QK-norm removes the 1/sqrt(d) scale, which is why it often makes training less stable.
+
+=== llm-nn-24
+W F.scaled_dot_product_attention (SDPA) picks an efficient kernel (often FlashAttention) and, with is_causal=True, applies a correct causal mask. Hand-rolled attention is great for learning, but in real training you want SDPA (or an explicit FlashAttention call) for memory and speed.
++ Use SDPA, usually with is_causal=True, so you get a fused, memory-efficient kernel. Hand-rolled attention is for learning, not for production training.
+- SDPA is a slower reference implementation. You should always write your own T x T scores in Python for speed.
+- is_causal=True is only a documentation flag and does not mask. You must still add -inf yourself after softmax.
+- SDPA cannot be causal, so GPT-style models must use a manual matmul, even at long context.
+
+=== llm-in-12
+G flashattention-tiles
+W FlashAttention tiles Q, K, and V so the full T x T score matrix never sits in HBM. It uses an online softmax to keep the exact result while combining tiles. FLOPs are similar to standard attention, but IO and memory drop a lot, which is why long context becomes feasible.
++ IO-aware tiling plus online softmax. The result is exact, and the full T x T matrix is never stored in HBM.
+- It approximates attention with a sparse random mask, so it is faster but not exact.
+- It stores the full T x T matrix in HBM, then streams it once, which is why memory is still O(T^2).
+- FlashAttention is a quantization of scores to int8, which is why it can change the output.
+
+=== llm-in-13
+W Online softmax keeps a running max and a running sum of exp(z - max). When a new tile has a larger max, you rescale the old partial numerator and denominator by exp(old_max - new_max), then keep going. At the end you have the exact softmax of the whole row, without seeing all scores at once.
++ Keep a running max and sum. When the max changes, rescale the old partials, then continue. The final result is exact.
+- Average the softmax of each tile independently, which is faster but changes the math.
+- Store every score, then run a normal softmax at the end, which is what "online" means here.
+- Online softmax uses a fixed max of 0, so no rescaling is needed when tiles differ.
+
+=== llm-p3-03
+W Standard attention does Theta(N d + N^2) HBM accesses because of the score matrix. FlashAttention is Theta(N^2 d^2 / M) HBM accesses, where M is on-chip memory, with the same FLOPs, far less IO, and O(N) extra memory. The point is IO, not a different algorithm's FLOP count.
++ Standard attention does Theta(N d + N^2) HBM accesses. Flash is Theta(N^2 d^2 / M), same FLOPs, far less IO, and O(N) memory.
+- FlashAttention lowers FLOPs from O(N^2 d) to O(N d), which is why it is approximate.
+- FlashAttention increases HBM traffic to save registers, and its memory is still O(N^2).
+- The IO result is the same as standard attention; only the Python wrapper is different.
+
+=== llm-p3-04
+W The forward stores the output O and the per-row logsumexp, not the full P. Backward recomputes P per tile from Q, K and those stats. With D = rowsum(dO * O), the score gradient is dS = P * (dP - D). That D term is easy to miss and comes from differentiating the softmax normalization.
++ Store O and logsumexp, recompute P per tile. dS = P * (dP - D) with D = rowsum(dO * O).
+- Store the full P in HBM, and dS = dP, with no D term, which is why backward is cheaper than forward.
+- Store only Q, and set D to 0, because softmax is treated as a constant in FlashAttention backward.
+- Backward is identical to a naive attention backward and requires the T x T matrix from forward.
+
+=== llm-p3-05
+W FlashAttention-2 reduces work in the rescaling, parallelizes more over the sequence dimension, and splits Q (not K/V) across warps, which improved occupancy and roughly doubled FA1 speed in the paper's setting. The algorithm is still exact attention, just a better schedule.
++ FA2 rescales less often, parallelizes more over the sequence, and splits Q across warps, about 2x FA1, still exact.
+- FA2 dropped online softmax and stores T x T again, which is why it is simpler and slower than FA1.
+- FA2 is an approximation that halves FLOPs by dropping half the keys, which is the 2x claim.
+- The only change was a new dtype. The tiling and warp schedule in FA2 are the same as FA1.
+
+=== llm-tf-14
+G rope-rotation
+W After pretraining, labs usually rescale RoPE frequencies (PI, NTK-aware, YaRN, or a close cousin) and then fine-tune on longer sequences. Just naively running positions past the trained range (raw extrapolation) is much weaker. You also have to check that short-context quality does not regress.
++ Rescale RoPE frequencies, then fine-tune on long data. Raw extrapolation without rescaling is much weaker.
+- Freeze RoPE and only increase the position table with random rows, with no long-data fine-tune.
+- Replace RoPE with ALiBi at inference, which always extends perfectly and needs no fine-tuning or checks.
+- Context extension is done by repeating the last position id, which is how PI is implemented.
+
+=== llm-p3-06
+W Position Interpolation scales position index m by L/L' so the angles stay inside the trained range when you go to a longer length L'. That squeezes every frequency. A short fine-tune then adapts the model. It beats raw extrapolation, which asks RoPE to use angles it never saw.
++ Scale positions by L/L' so angles stay in the trained range, then fine-tune briefly. That squeezes every frequency and beats raw extrapolation.
+- PI copies the last trained position for all new indices, and it is worse than extrapolation on every task.
+- PI raises the RoPE base only, and it does not scale m or fine-tune.
+- PI interpolates the token embeddings, not the positions, which is why short-context quality always drops.
+
+=== llm-p3-07
+W NTK-aware scaling raises the RoPE base so high frequencies are less distorted than under plain PI. YaRN interpolates only the long-wavelength dimensions, with a ramp in between, and adds a temperature 0.1 ln s + 1. Both are responses to PI treating every frequency the same.
++ NTK-aware raises the RoPE base. YaRN interpolates only the long-wavelength dims (with a ramp) and uses a temperature 0.1 ln s + 1.
+- Both methods are identical to PI, just with a new name, and they interpolate every frequency equally.
+- YaRN lowers the base and interpolates only high-frequency dims. NTK-aware adds no RoPE change.
+- NTK-aware and YaRN replace RoPE with learned absolute embeddings, which is why they do not need a temperature.
+
+=== llm-p3-08
+W Do not trust a single passkey demo. Check perplexity by position, passkey and needle tasks, a harder suite like RULER, real long tasks, and short-context regression. A method that aces one needle but hurts short MMLU has not really "worked."
++ Check perplexity by position, needles and passkey, a harder suite like RULER, real long tasks, and no short-context regression.
+- A single passkey example is enough, and short-context scores can be ignored if the needle works.
+- Only report training loss at the new length. Downstream long tasks are not used for this.
+- If the model can open a 1M context window without OOM, the extension has worked, even if quality collapses.
+
+=== llm-tf-24
+G moe-router
+W An MoE layer routes each token to a small number of expert MLPs (top-k). Total parameters scale with the number of experts, but FLOPs per token scale with k, the active experts. Memory still has to hold all experts, unless you do some form of offload or sharding. That is the total vs active split.
++ Total parameters scale with the number of experts, FLOPs scale with top-k active experts, and memory still holds all experts.
+- Total and active parameters are always equal, because every expert runs on every token.
+- FLOPs scale with the number of experts, and memory only holds the top-k, which is why MoE is free at inference.
+- MoE layers replace attention, not the MLP, and active parameters include every expert by definition.
+
+=== llm-tf-25
+W Two big problems: routing imbalance (some experts packed, others starved) and all-to-all communication to send tokens to their experts. Fixes include auxiliary load-balance losses, capacity factors, expert parallelism, and better routers. Ignore either and training or scaling will hurt.
++ The pain is routing balance and all-to-all communication. Aux losses, capacity factors, and expert parallelism are the usual tools.
+- MoE training is the same as a dense MLP, with no communication or balance issues.
+- The only problem is overfitting the tokenizer, which you fix by tying expert weights to the unembedding.
+- All-to-all is unnecessary because every GPU already has every token. Balance losses are only for logging.
+
+=== llm-p3-09
+W Switch used top-1 routing, a capacity factor that can drop overflow tokens, an aux load-balance loss alpha * N * sum f_i P_i, a fp32 router, and smaller init. Those choices made a huge sparse model trainable at that time, at the cost of some dropped tokens.
++ Top-1 routing, a capacity factor that may drop tokens, aux loss alpha N sum f_i P_i, a fp32 router, and smaller init.
+- Top-8 routing with no capacity limit, no aux loss, and fp16 routers, which is the original Switch recipe.
+- Switch is a dense model with a special residual, not a routed MoE, and it never drops tokens.
+- The main Switch idea was to train experts one at a time, with no router and no all-to-all.
+
+=== llm-p3-10
+W The Switch term is N * sum_i f_i P_i, where f_i is the fraction of tokens routed to expert i and P_i is the mean router probability for i. If 4 experts are perfectly balanced, f_i = P_i = 1/4, and the sum is N * 4 * (1/4 * 1/4) = 1. A skewed f like [0.7, 0.1, 0.1, 0.1] with matching P gives 1.84. The gradient goes through P, weighted by f.
++ Perfectly balanced, the term is 1.0. A skewed [0.7, 0.1, 0.1, 0.1] example gives 1.84. Gradients flow through P, weighted by f.
+- Balanced is 0, and the skewed case is 0.7. Gradients flow through f only, not through P.
+- The term is always N, regardless of balance, so it cannot train the router.
+- Balanced is 4.0, and the skewed example is 0.25, because you sum f_i only.
+
+=== llm-p3-11
+W DeepSeekMoE uses many small experts (so the number of routing combinations is large, e.g. C(16,2)=120 versus a coarser top-8 of 64 which is huge) and also always-on shared experts that every token sees. Shared experts capture common work; the routed experts specialize. That is the two-idea summary.
++ Many small routed experts, so combinations like C(16,2)=120 are rich, plus always-on shared experts that every token uses.
+- One giant expert per layer, with no shared experts, and C(64,8) was treated as too small to be useful.
+- DeepSeekMoE is top-1 Switch with no shared experts and fewer, larger experts than a dense MLP.
+- Shared experts are used only at eval, and the combination count is always 2, independent of expert count.
+
+=== llm-tf-27
+W Local or sliding-window attention, and SSM or linear-attention hybrids, are real production ideas. Full softmax attention is still the quality default in most frontier stacks, often mixed with those cheaper layers rather than fully replaced. Treat "attention is dead" claims with care.
++ Local attention and SSM or linear hybrids are real. Full softmax attention still dominates quality, often in a mix.
+- In 2026, no serious lab still uses softmax attention; everything is a pure SSM.
+- The only alternative taken seriously is n-gram counts. Local attention and SSMs were abandoned.
+- Full attention was replaced by MLP-only mixers, which beat it on every long-context task.
+
+=== llm-p3-12
+W Causal linear attention replaces exp(q^T k) with phi(q)^T phi(k). Then the state is S_t = S_{t-1} + phi(k_t) v_t^T, and o_t = S_t^T phi(q_t) / a normalizer. That recurrent form is an RNN with a matrix state, and it is exact for that kernel, not an approximation of softmax.
++ Replace exp(q^T k) with phi(q)^T phi(k). Then S_t = S_{t-1} + phi(k_t) v_t^T and o_t = S_t^T phi(q_t) / a normalizer.
+- Linear attention is softmax attention with a learned temperature of 0, written as an RNN with no state.
+- The recurrent form is o_t = o_{t-1} + q_t, with no key or value, which is why it is called linear.
+- phi must be exp, and the state cannot include a running sum of phi(k) v^T, or causality breaks.
+
+=== llm-p3-13
+W The parallel form is a lower-triangular (or masked) kernel matrix, O(T^2 d). The recurrent form is the RNN, O(T d^2) compute but sequential. Chunkwise mixes both: O(T C d + T d^2) with matmuls inside chunks. If implemented correctly they are the same function, just different schedules.
++ Parallel O(T^2 d), recurrent O(T d^2) but sequential, chunkwise O(T C d + T d^2) with matmuls. They should match.
+- The three forms are different functions, and only the recurrent one is causal.
+- Chunkwise is approximate, and the parallel form is O(T d). The recurrent form is rarely used.
+- All three are O(T^2 d^2) and cannot be written as matmuls, which is why they are slow to train.
+
+=== llm-p3-14
+W Plain linear attention only adds into a fixed-size state, with no forgetting and fairly flat weights, so it is weak at precise recall of a particular past token. Gates (to forget) and the delta rule (to overwrite a key) are the usual fixes. The issue is the associative memory, not only the kernel approximation.
++ It only adds, has a fixed-size state, and fairly flat weights, so recall suffers. Gates and the delta rule are the usual fixes.
+- It is already better at recall than softmax, and gates would only hurt retrieval.
+- The only problem is FLOPs, not recall. Adding more heads with no gate fixes it.
+- Linear attention forgets too aggressively by default, which is why it needs a larger state, not a delta rule.
+
+=== llm-p3-15
+W GLA uses S_t = Diag(alpha_t) S_{t-1} + k_t v_t^T, a data-dependent per-channel forget gate, and is trained with chunkwise Triton kernels so the parallel-looking matmuls stay efficient. The gate is the main upgrade over plain additive linear attention.
++ S_t = Diag(alpha_t) S_{t-1} + k_t v_t^T, with a data-dependent per-channel gate, trained with chunkwise Triton kernels.
+- GLA removes the state and uses a softmax attention with a learned temperature, trained only recurrently.
+- GLA is S_t = S_{t-1} with no write term, which is how it saves memory, and it has no efficient chunkwise form.
+- The gate in GLA is a token-level dropout, not a per-channel scale on the previous state.
+
+=== llm-p3-16
+W A state space layer is a linear recurrent state h_t = A_bar h_{t-1} + B_bar x_t, y_t = C h_t, usually from a continuous (A,B) discretized with a step Delta, e.g. A_bar = exp(Delta A). If the parameters do not depend on the input, the map is a convolution and can be trained as one.
++ h_t = exp(Delta A) h_{t-1} + B_bar x_t, y_t = C h_t. Time-invariant parameters give a convolution.
+- SSMs are just MLPs with extra LayerNorm, and they cannot be written as a recurrence or a convolution.
+- Discretization replaces A with A^2, and y_t is independent of h_t, which is why SSMs are memoryless.
+- The state is only used at inference. Training always uses a softmax attention over the full sequence.
+
+=== llm-p3-17
+W In Mamba, Delta, B, and C depend on the current input, so the model can choose to remember or ignore a token. That breaks the time-invariant convolution view, so they use a fused scan in SRAM instead. The gain is content-aware gating; the cost is that the cheap conv path is gone.
++ Delta, B, and C depend on the input, so Delta acts like a gate. You lose the convolution path and need a fused scan.
+- Selective means the layer drops half the channels at random, and the convolution path still holds exactly.
+- Mamba's parameters are fixed across time, which is what "selective" refers to, and the conv path is required.
+- Selectivity only changes C at the output, and it costs extra HBM traffic with no gating of the state.
+
+=== llm-p3-18
+W Mamba-2 uses a simpler structured A (a scalar per head) so the SSM is dual to a masked linear attention: Y = (L * C B^T) X, where L is a decay or lower-triangular mask. That duality lets them reuse linear-attention-style kernels. SSD is that equivalence, not a new loss.
++ A scalar A per head makes the SSM equal to masked linear attention with a decay mask: Y = (L * C B^T) X.
+- SSD means two Mamba models are distilled into one, and it is not an attention duality.
+- Mamba-2 removes the state and uses unmasked softmax attention, which is the duality.
+- The duality only holds for nonlinear A, and L is an attention dropout mask, not a decay.
+
+=== llm-p3-19
+W View the memory S as trying to map keys to values. The loss 1/2 |S^T k - v|^2 has gradient (S^T k - v) in the residual, and one online GD step with step size beta is S_t = (I - beta k k^T) S_{t-1} + beta k v^T. That is the delta rule, not a random recurrent form.
++ Online GD on 1/2 |S^T k - v|^2 gives S_t = (I - beta k k^T) S_{t-1} + beta k v^T.
+- The delta rule is S_t = S_{t-1} + k v^T, the same as plain linear attention, with no (I - beta k k^T) term.
+- It comes from Newton's method on a classification loss, and beta must be 0 or the update diverges.
+- S_t = beta S_{t-1}, with no write term, because the regression target is always 0.
+
+=== llm-p3-20
+W Linear attention adds k v^T even if that key already stored something, which smears old values. The delta rule writes the error v - S^T k. If k is unit-norm and beta is 1, the new memory returns exactly v for that key, so retrieval can overwrite cleanly instead of averaging.
++ It writes the error v - S^T k. With unit-norm k and beta=1, the memory returns exactly the new value for that key.
+- It always averages the old and new values, which is why recall stays smeared even at beta=1.
+- Retrieval is fixed by increasing state size only. The write rule does not change what a key returns.
+- When you write the same key twice, the delta rule ignores the new value, which preserves the first write forever.
+
+=== llm-p3-21
+W Products of Householder-like terms (I - beta k k^T) can be compressed with a WY / UT representation per chunk, so each chunk becomes matmuls instead of a long serial loop. That is how DeltaNet is trained in parallel over the sequence, while remaining equivalent to the recurrent rule.
++ Products of (I - beta k k^T) are compressed with a WY / UT form per chunk, so chunks become matmuls.
+- You just run the recurrent rule in Python over T, which is already the fast training path.
+- Parallel training uses a full T x T softmax attention, so the delta rule is only for inference.
+- There is no algebraic compression; people approximate the product by dropping all but the last term.
+
+=== llm-p3-22
+W A practical DeltaNet layer is more than the memory update: a short conv plus SiLU on q, k, v, L2-norm on q and k, a sigmoid beta, and an output norm and gate. Those pieces stabilize the rule and make it look like other modern mixer blocks.
++ Short conv and SiLU on q, k, v; L2-norm on q and k; sigmoid beta; output norm and gate, on top of the delta update.
+- Just the raw S update on the token embeddings, with no conv, no beta head, and no output gate.
+- A full softmax attention plus an FFN, with the delta rule used only to init the weights.
+- DeltaNet layers replace the tokenizer, not the token mixer, and they have no q, k, v paths.
+
+=== llm-p3-23
+W FLA groups Triton kernels under ops (chunk and fused_recurrent, plus naive references), then layers, models, and tests. To learn a kernel, start at the user-facing entry, then the autograd Function, then the actual Triton files. The naive ref is the thing you should match.
++ ops (chunk and fused_recurrent kernels, naive refs), then layers, models, tests. Read the entry, the Function, then the kernels.
+- Everything is one 10k-line CUDA file with no tests or naive reference, and no layer wrappers.
+- FLA is only a paper, not a library, so there is no kernel layout to learn.
+- You should start from a generated PTX dump, not the Python entry or the naive reference.
+
+=== llm-p3-24
+W A good first PR starts from a failing test, keeps the change small, includes benchmarks if you claim speed, and follows the repo's style and kernel layout. Do not dump a huge unrelated refactor as your first contribution.
++ Write a failing test first, keep the fix small and focused, add benchmarks for perf claims, and follow the repo's conventions.
+- Open a PR that rewrites the entire library, with no tests, because a kernel library does not need them.
+- Only contribute to docs, never tests, and skip benchmarks even if you change the fast path.
+- Copy a kernel from another project and force-push to main, which is the usual first contribution path.
+
+=== llm-p3-25
+W Gated DeltaNet is S_t = alpha_t (I - beta k k^T) S_{t-1} + beta k v^T. The scalar (or later, per-channel) gate can quickly forget a stale state, and the delta term can overwrite a specific key. The combination handles both "erase a lot" and "write this key" better than either alone.
++ S_t = alpha_t (I - beta k k^T) S_{t-1} + beta k v^T: a gate for fast erasing plus the delta rule for targeted writes.
+- The gate multiplies the write term only, and the recurrent state can never shrink, which is the Gated DeltaNet idea.
+- Gated DeltaNet removes the delta term and only uses alpha_t S_{t-1}, which is plain decayed linear attention.
+- alpha_t must be 1 and beta 0, or the two mechanisms cancel and the layer does nothing.
+
+=== llm-p3-26
+W Line them up on two axes: forgetting (none, a scalar gate, or a per-channel gate) and writing (plain add vs the delta rule). Linear attention adds and does not forget; GLA gates per-channel and adds; DeltaNet uses a delta write; Gated DeltaNet adds a gate; KDA is per-channel gate plus delta. State is d_k by d_v.
++ Two axes: forgetting (none, scalar, per-channel) and writing (add vs delta). KDA is a per-channel gate plus a delta write.
+- All six methods use the same update, and the names only reflect different kernel fusions, not the math.
+- Mamba-2 is a delta write with no decay, and linear attention already has a per-channel gate.
+- KDA is the only method with no state, which is why it sits off both axes.
+
+=== llm-p3-27
+W KDA is Gated DeltaNet with a per-channel Diag(alpha_t) gate, plus a constrained DPLR structure that makes the kernel about 2x faster than a general DPLR form. The math is "gated delta with a cheaper structured kernel," not a totally new memory.
++ KDA is Gated DeltaNet with a per-channel Diag(alpha_t) gate, in a constrained DPLR form that is about 2x faster than general DPLR.
+- KDA is full softmax attention with no state, and it is slower than general DPLR by design.
+- KDA removes the delta write and the gate, returning to plain linear attention with a new name.
+- KDA is a tokenizer for Kimi models, not a token-mixing layer, and it has no DPLR kernel.
+
+=== llm-p3-28
+W Kimi Linear mixes KDA with a smaller amount of full attention (about 3:1 KDA to NoPE MLA in the write-up), as a 48B-total / 3B-active MoE, with a 1.4T-token fairly compared run, and claimed large decode-speed and KV-cache savings at long context (up to about 75% less cache and about 6x decode at 1M in the report).
++ About 3:1 KDA to NoPE MLA, 48B/3B MoE, a 1.4T-token fair comparison, with big KV-cache and decode wins at 1M.
+- A dense 1T softmax-only model, with no MoE and no cache savings, trained on 1.4B tokens.
+- Pure KDA with zero full-attention layers, 3B total parameters, and no claimed decode speedup.
+- The headline was worse decode than a vanilla Transformer, accepted as a trade for slightly better MMLU.
+
+=== llm-p3-29
+W If KDA layers already carry position through their recurrent state, the occasional global MLA layer can drop RoPE (NoPE) and do pure content retrieval. Then you do not have to rescale RoPE on those layers when the context grows. That is the design reason, not a tokenizer trick.
++ KDA already encodes order, so the global MLA layers can do content retrieval without RoPE, and there is nothing to rescale for long context.
+- NoPE is used because Kimi Linear has no position information anywhere, which is why long context fails without PI.
+- MLA layers need stronger RoPE than usual, and NoPE is only a name for a doubled base frequency.
+- NoPE means no positional embeddings in the tokenizer; the attention layers still use RoPE on every head.
+
+=== llm-p3-30
+W Fixed unit-weight residual sums can dilute later layers. AttnRes lets each layer attend, with a softmax, over earlier layer outputs (or a summary of them), so the combination weights are learned and input-dependent instead of a plain sum. That is the core idea.
++ Fixed unit-weight residual sums can dilute later layers. AttnRes lets each layer softmax-attend over earlier layer outputs.
+- AttnRes deletes all residuals and uses a skip of 0, which is how it stops dilution.
+- AttnRes is a new FlashAttention kernel and does not change how layers are combined.
+- The idea is to average only the first layer and the last, with equal weights, for every block.
+
+=== llm-p3-31
+W Block AttnRes attends over block-level summaries of earlier layers, not every single layer output, which saves memory and pipeline traffic. The idea has been used in a 48B/3B Kimi Linear setting and in Kimi K3, i.e. at real scale, not only in a toy ablation.
++ Attend over block summaries, not every layer, to save memory and traffic. It has been used in a 48B/3B Kimi Linear run and in Kimi K3.
+- Block AttnRes is only a toy on MNIST, and it attends over every layer with no summary, which increases traffic.
+- It has not been used at scale. Kimi K3 removed AttnRes after it hurt decode.
+- Block means the method is applied only to the first block, and later layers use a plain residual.
+
+=== llm-tf-22
+W MHA has a separate K and V per query head. MQA shares one K/V across all query heads. GQA groups query heads and shares K/V within each group. GQA is the usual tradeoff: a much smaller KV cache than MHA, with quality close to MHA, unlike more aggressive MQA.
++ GQA shares K/V across groups of query heads: a smaller cache than MHA, with quality usually close to MHA. MQA shares one K/V among all heads.
+- MQA has the largest cache, and GQA is only a training trick that does not change inference memory.
+- GQA means each query head has several K heads, which increases the cache, and MHA is the smallest.
+- The three names are synonyms. There is no cache tradeoff, only different initializations.
+
+=== llm-tf-23
+W MLA compresses the keys and values into a low-rank latent that is what you cache, then up-projects as needed. The point is a smaller KV cache than full-head K/V, with better quality than a naive low-rank cut, as in DeepSeek-V2 style designs.
++ MLA caches a low-rank latent instead of full K and V, then up-projects, so the cache is smaller.
+- MLA stores full K and V for every head, which is why its cache is larger than MHA.
+- MLA is a MoE router over attention heads, and it does not change what is cached.
+- MLA replaces the residual stream with a latent of size 1, and there is no up-project.
+
+=== llm-fd-23
+W Muon orthogonalizes or polar-decomposes a momentum update for matrix parameters, aiming for better conditioned steps than AdamW on those matrices. It has looked strong in some speedruns and mid-scale runs, but it is not yet a universal replacement for AdamW on every LLM recipe. Treat it as promising, not settled.
++ Muon is an orthogonalized momentum update for matrices. It is promising in some recipes, not yet a universal AdamW replacement.
+- Muon is the standard optimizer in every frontier lab, and AdamW has been abandoned.
+- Muon is a data filter, not an optimizer, and it only applies to embeddings.
+- Muon is SGD without momentum, and it is already known to be worse at every scale.
+
+=== llm-p3-32
+W modded-nanogpt is a public speedrun: get a small GPT to a target val loss (like 3.28) on a fixed 8xH100 setup as fast as possible. Each record is a small, measured change (Muon, rotary details, QK-norm, ReLU^2, and so on). It is worth studying because the ablations are tight and reproducible, not because the model is large.
++ A speedrun to a fixed val loss on 8xH100, where each record is a small measured change such as Muon, rotary, QK-norm, or ReLU^2.
+- A production 70B training stack, with no public ablations, aimed at a hidden benchmark.
+- A tokenizer-only repo, unrelated to architecture or optimizer changes.
+- A paper without code, claiming a 10x speedup with no measured records.
+
+=== llm-p3-33
+W A useful 2026 map is: token mixing (softmax, local, linear, SSM, hybrids), channel mixing (MLP, SwiGLU, MoE), positions (RoPE, YaRN, NoPE, implicit state), depth/stability (pre-norm, QK-norm, residuals/AttnRes), and the optimizer (AdamW, Muon). For each axis, know the problem it fixes, the cost, and at least one paper.
++ Axes: token mixing, channel mixing, positions, depth/stability, and optimizer. For each, know the problem, the cost, and one paper.
+- The only axis that still matters is depth. Mixing, positions, and optimizers are considered solved.
+- The map is only "encoder vs decoder," and all 2026 models sit at the same point on every other axis.
+- Architecture choice in 2026 is only about vocab size and nothing else.

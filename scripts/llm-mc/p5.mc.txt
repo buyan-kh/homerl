@@ -1,0 +1,186 @@
+=== llm-po-05
+W InstructGPT does three steps: SFT on human demonstrations, a reward model trained on ranked responses so the preferred one scores higher, then PPO that maximizes reward minus a KL penalty back to the SFT model. That KL term is the leash that stops the policy from wandering too far. Labelers preferred a 1.3B InstructGPT model to 175B GPT-3.
++ SFT on demonstrations, then a reward model from human rankings, then PPO with a KL penalty to the SFT model.
+- Pretrain from scratch on rankings, then run best-of-n at inference, with no SFT and no PPO.
+- Train a reward model first on raw web text, then SFT on the reward, then drop the KL term so the policy can move freely.
+- Do PPO on the base model with a hand-written reward, then SFT last so the model copies users as well as assistants.
+
+=== llm-p5-01
+W Remember the scale: about 13k SFT prompts, 33k for the reward model, 31k for PPO. Rankings used K = 4 to 9 outputs per prompt, kept in the same batch. The reward model was 6B, started from SFT, with a pairwise loss. PPO-ptx mixed pretraining gradients in to limit the alignment tax. The headline was that 1.3B InstructGPT was preferred to 175B GPT-3, and the paper warned it was aligned to those labelers, not to everyone.
++ About 13k / 33k / 31k prompts for SFT, RM, and PPO; K = 4 to 9 rankings; a 6B RM; PPO-ptx to limit the alignment tax; 1.3B preferred to 175B GPT-3.
+- Millions of SFT prompts, a 175B reward model, and no pretraining mix, which is why 1.3B could not beat GPT-3.
+- They ranked two outputs per prompt from different batches, used no RM, and only did SFT plus best-of-n.
+- The headline result was 175B InstructGPT beating 1.3B GPT-3, with no caveats about whose preferences were used.
+
+=== llm-po-01
+W SFT uses the same next-token cross-entropy as pretraining, but on conversations in a fixed chat template, and the loss is usually masked to assistant tokens only (labels -100 on prompt and user tokens). Quality and diversity of the data matter more than huge volume. Typical LRs are small, like 1e-5 for full fine-tuning.
++ Next-token loss on assistant tokens only, with a fixed chat template. Prompt and user tokens are masked out of the loss.
+- Next-token loss on every token, including the user turns, so the model learns to imitate users as well.
+- A classification loss on a single "good/bad" label per conversation, with no token-level objective.
+- SFT freezes the model and only trains a new tokenizer, because the pretrained weights already know how to chat.
+
+=== llm-po-02
+W The model learned that a reply starts after an exact header and ends with a specific stop token. If serving uses a different template, the model is off-distribution: it may keep talking as the user, never emit the stop token, or lose instruction following. Train and serve with the same apply_chat_template and the same stop token, and do not add BOS twice.
++ Train and serve with the exact same chat template and stop token. A mismatch puts the model off-distribution.
+- Templates only affect pretty-printing. The model ignores special tokens at inference if it was fine-tuned.
+- You should deliberately change the template at inference so the model cannot overfit to header strings.
+- Mismatched templates only hurt if you also change the temperature. Otherwise the model will still stop correctly.
+
+=== llm-ip-10
+W If the model never stops, it probably never saw the end-of-turn or EOS token as a supervised target. Common causes: EOS was masked out of the loss, the template did not append it, pad was set equal to EOS so those labels were ignored, or the server stops on a different token. Fix the labels and the serving stop token together.
++ EOS or the end-of-turn token was never a supervised target, often because it was masked, missing from the template, or confused with pad. Fix labels and the server stop token.
+- The learning rate is too low, so the model cannot learn punctuation. Raise it until the model stops.
+- This is a decoding bug only. Training data does not need EOS if you use a max-length cutoff at serve time.
+- The model is too aligned and refuses to stop. Remove the KL penalty and it will emit EOS.
+
+=== llm-p5-02
+W TRL's SFTTrainer accepts plain text, prompt-completion, or conversational messages, applies the chat template, and can mask the loss to assistant or completion tokens. For a first run, check packing, learning rate, epochs, and decode a few samples before and after. Packed sequences speed things up but can hide masking bugs if you are not careful.
++ Use prompt-completion or messages, apply the chat template, mask to assistant tokens, and check packing, LR, and decoded samples before a long run.
+- TRL always trains on every token and ignores chat templates, so you must format strings by hand and disable packing.
+- SFTTrainer only works with a reward model already attached. Settings like LR do not matter for a first run.
+- You should disable masking and packing, and train for 50 epochs, which is the TRL default for chat models.
+
+=== llm-po-03
+G dpo-pref
+W DPO starts from an SFT model and a dataset of preferred vs rejected replies for the same prompt. It raises the likelihood of the chosen reply and lowers the rejected one, relative to a frozen reference model, with a beta that controls how far you may move. There is no separate reward model and no PPO loop. The loss comes from a Bradley-Terry model of preferences under a KL constraint.
++ DPO uses chosen vs rejected pairs and a frozen reference. It raises the winner's log-prob and lowers the loser's, with no reward model and no PPO.
+- DPO trains a reward model, then runs PPO. The chosen/rejected labels are only used at evaluation time.
+- DPO drops the reference model and maximizes the rejected reply, which is how it increases diversity.
+- DPO is supervised fine-tuning on the rejected replies only, so the model learns what not to say by imitation.
+
+=== llm-po-25
+W beta is the KL-strength knob: larger beta keeps the policy closer to the reference, smaller beta allows a bigger move and can overfit the preference data. If you see the policy collapsing or reward hacking the labels, raise beta or improve the data. If it barely moves from SFT, lower beta a bit, but watch evals.
++ Larger beta stays closer to the reference; smaller beta moves more and can overfit. Tune it by watching how far you drift and how evals change.
+- beta is the learning rate. Larger beta always means faster, better preference learning with no downside.
+- beta is the dropout on the reference model. It should be 0.5 for all DPO runs.
+- You should set beta to 0 so there is no KL term, which is the official DPO recommendation.
+
+=== llm-ip-08
+CODE
+W A LoRA wrapper freezes the base Linear and adds a low-rank update (B A) * scale, where A is (r, in) and B is (out, r), often with r much smaller than the full dim. Only A and B (and maybe a scale) are trained. A common bug is initializing B or the product so that the forward pass changes at step 0, or applying LoRA to the wrong modules.
++ class LoRALinear(nn.Module):
+    def __init__(self, base, r, alpha):
+        super().__init__()
+        self.base = base
+        for p in self.base.parameters():
+            p.requires_grad = False
+        self.A = nn.Parameter(torch.randn(r, base.in_features) * 0.01)
+        self.B = nn.Parameter(torch.zeros(base.out_features, r))
+        self.scale = alpha / r
+    def forward(self, x):
+        return self.base(x) + (x @ self.A.T @ self.B.T) * self.scale
+- class LoRALinear(nn.Module):
+    def __init__(self, base, r, alpha):
+        super().__init__()
+        self.base = base  # left trainable
+        self.A = nn.Parameter(torch.ones(base.out_features, base.in_features))
+    def forward(self, x):
+        return self.base(x) * 0
+- class LoRALinear(nn.Module):
+    def forward(self, x):
+        return x  # skip the base layer and the adapter
+- class LoRALinear(nn.Module):
+    def __init__(self, base, r, alpha):
+        super().__init__()
+        self.U, self.S, self.V = torch.linalg.svd(base.weight)
+    def forward(self, x):
+        return F.linear(x, self.U)
+
+=== llm-po-26
+W DeepSeekMath introduced GRPO: for each prompt, sample a group of outputs, score them, and use the group's mean (and often std) as the baseline, so you do not need a value network. The policy is updated with a clipped objective similar to PPO, plus a KL term. It is a natural fit when you have a cheap verifiable reward, like math checkers.
++ Sample a group of answers per prompt, use the group mean as the baseline (no value net), and apply a clipped policy update plus a KL term.
+- GRPO is PPO with a learned value net that is larger than the policy. The group size must be 1.
+- GRPO replaces the reward with a human ranking and does not use groups. It is just DPO under another name.
+- GRPO backprops through a discrete checker with Gumbel-softmax, and it cannot use a KL term.
+
+=== llm-po-27
+G grpo-group
+W The advantage is typically (r_i - mean(r)) / (std(r) + eps) inside the group for that prompt. A sample better than the group mean gets a positive advantage, a worse one gets a negative. If every sample has the same reward, advantages are about 0 and there is no learning signal, which is why group diversity and a mix of success rates matter.
++ Advantage is relative to the other samples in the same prompt's group, usually (r - mean) / std. A group with no reward variation gives no signal.
+- Advantage is the raw reward r_i, with no baseline. The group is only used for logging.
+- Advantage is r_i minus the reward of a different prompt, which is how GRPO shares signal across the batch.
+- Advantage is always +1 for the first sample and -1 for the rest, regardless of reward.
+
+=== llm-po-11
+W DeepSeek-R1-Zero applied RL directly to the base model with a verifiable reward, no SFT first, and saw long chain-of-thought and self-reflection emerge. The text was often messy or mixed-language. That is the "RL from a base model can discover reasoning behavior" result, with readability as the cost that later R1 addressed.
++ RL on the base model with a verifiable reward, no SFT first. Long reasoning and reflection emerged, but the writing was often messy or mixed-language.
+- R1-Zero is a purely supervised dataset of short answers, with no RL. Readability was already perfect.
+- R1-Zero first trains a 175B reward model, then does SFT only. Chain-of-thought is copied from humans, not discovered.
+- The paper showed that RL without SFT cannot produce long reasoning, which is why they abandoned the run.
+
+=== llm-po-12
+W Rule-based rewards for math and code are accurate when you can check the final answer or tests, and they are hard to game if the checker is strict. They do not help on open-ended writing. Process or model rewards can give denser signal but are easier to hack. R1-style work leaned on verifiable end answers for reasoning, plus extras like format or language consistency.
++ Use a strict checker on the final answer or tests when you can. It is reliable and harder to game than a learned reward, but it only works on verifiable tasks.
+- Learned rewards are always safer than rules, because a model cannot be gamed and it works on every domain equally.
+- Rule-based rewards should score style only, never the answer, or the policy will memorize checkers.
+- You cannot use rule-based rewards with GRPO, only with PPO and a value net.
+
+=== llm-po-13
+W Outcome reward scores only the final answer. Process reward scores intermediate steps. Outcome is simple and matches the real goal, but the signal is sparse. Process can teach earlier, but bad process labels or a hackable step scorer can teach the wrong chain. Many modern reasoning RL setups start with outcome verifiers and add process signal carefully.
++ Outcome scores only the final answer (simple, sparse). Process scores the steps (denser, easier to get wrong or hack).
+- Outcome and process rewards are the same once you average them, so the distinction does not matter.
+- Process rewards are only used at eval time. Training should always use a purely random reward to explore.
+- Outcome rewards require a value network, and process rewards cannot be used with GRPO.
+
+=== llm-ip-12
+CODE
+G grpo-group
+W A typical GRPO policy loss uses the probability ratio (or token-sum log-prob ratio) times a group-normalized advantage, clipped like PPO, minus a KL penalty to the reference. You need per-sequence or per-token log-probs for the current and old/reference policies. Bugs include forgetting to detach the advantage, skipping the clip, or normalizing across the whole batch instead of the group.
++ adv = (r - r.mean()) / (r.std() + 1e-8)
+ratio = (logp - logp_old).exp()
+unclipped = ratio * adv
+clipped = ratio.clamp(1 - eps, 1 + eps) * adv
+loss = -(torch.min(unclipped, clipped).mean()) + beta * kl
+- loss = -(logp * r).mean()  # no baseline, no clip, no KL
+- loss = (logp_ref - logp).mean()  # maximize KL, ignore reward
+- adv = r.sum()
+loss = (ratio * adv).max()
+
+=== llm-po-14
+W Dr. GRPO, DAPO, and GSPO are later fixes around GRPO's instabilities: things like removing or changing std normalization, clipping, token-level vs sequence-level ratios, overlong or biased samples, and group or importance-sampling details. The shared theme is that naive GRPO can be biased or high-variance, and small recipe changes matter a lot in reasoning RL. Remember the family, not every constant.
++ They are recipe fixes for GRPO instabilities: normalization, clipping, token vs sequence ratios, and biased or overlong samples. Small recipe changes matter in reasoning RL.
+- They are new base-model architectures that replace the Transformer for reasoning.
+- They are SFT-only methods that remove RL from the DeepSeek pipeline.
+- They are eval benchmarks, not training methods, used only to score math contests.
+
+=== llm-p5-03
+W For a first GRPO or RLVR math run you need a verifiable reward (extract the final answer and check it), a group of samples per prompt, a reference or KL leash, logging of reward, entropy, KL, and clip fraction, and a held-out math eval. If reward goes up while eval is flat or entropy collapses, you are probably hacking or narrowing, not getting generally better.
++ Verifiable reward, a group per prompt, a KL leash, and logs for reward, entropy, KL, and a held-out eval. Rising reward with collapsed entropy is a warning.
+- You only need train accuracy. Entropy, KL, and a held-out set are optional for math RL.
+- Disable the checker and use a learned reward from the start, with a group size of 1 and no logging.
+- Run at temperature 0 during training so every group member is identical, which maximizes the advantage.
+
+=== llm-po-16
+W DeepSeek-R1 starts with a cold-start SFT on a few thousand readable long CoT examples, then reasoning RL with rule rewards plus a language-consistency reward, then rejection sampling to build a large SFT set (~800k scale in the write-up), then more RL for broader scenarios, and finally distillation into smaller models. The cold start is there to fix R1-Zero's readability issues.
++ Cold-start SFT, reasoning RL with language consistency, rejection sampling into a large SFT set, more RL, then distill to small models.
+- RL on the base model only, with no SFT, no distillation, and no language-consistency term, shipped as the final R1.
+- A single SFT pass on human short answers, then DPO, with no RL and no rejection sampling.
+- Distill first into small models, then run RL only on the 1B student, and skip the cold start.
+
+=== llm-p5-04
+W R1-Zero: RL from the base model, reasoning emerges, but the writing can be messy. R1 adds a cold-start SFT and later stages to make the traces readable and more broadly useful, then distills. The research lesson is that RL can discover long reasoning, and a small amount of carefully formatted SFT can make that behavior usable.
++ R1-Zero shows RL can discover long reasoning from a base model. R1 adds cold-start SFT and later stages so the traces are readable and usable, then distills.
+- R1-Zero was more readable than R1, so the cold-start SFT was later removed as harmful.
+- Both pipelines are only SFT. The "RL" in the name is a branding choice and no verifier was used.
+- R1 is worse at reasoning than R1-Zero on every metric, and distillation always erased the gains.
+
+=== llm-p5-05
+W When you read a reasoning-RL paper, look at the reward design, whether the eval is held out and decontaminated, the pass@k curve not just pass@1, entropy and KL, compute matched to baselines, and whether the method still helps after a fairly tuned SFT or distilled baseline. Many gaps shrink under those checks.
++ Check the reward, held-out eval, pass@k, entropy and KL, matched compute, and a fairly tuned SFT or distilled baseline.
+- Trust the training reward curve alone. If it goes up, the method is better, even with no held-out eval.
+- Only look at pass@1 for the new method, and compare it to an untuned base model.
+- Ignore entropy collapse if the paper reports a qualitative example of a long chain of thought.
+
+=== llm-po-04
+W Distillation trains a smaller student on a teacher's outputs, or on its full token distribution with a KL. DeepSeek-R1 distilled reasoning traces into smaller Qwen and Llama models with plain SFT, and those students beat the same small models trained with RL directly. For small models, distilling a strong reasoner is often cheaper and better than doing RL from scratch.
++ Distill a strong teacher's traces (or logits) into a small student. For small models this often beats running RL from scratch on the student.
+- Distillation only works from a small teacher to a larger student, which is what R1 showed.
+- R1 showed distillation hurts small models, so they must always be trained with RL instead of SFT on teacher traces.
+- Distillation means compressing the optimizer state, not training on teacher outputs.
+
+=== llm-po-20
+W pass@1 can make an RL model look much better while pass@256 shows the base model already had those solutions and just needed more samples. That is the "sharpening vs new abilities" debate. Report the full pass@k curve. If RL only wins at low k and entropy has collapsed, you probably narrowed the policy more than you taught new skills.
++ Plot pass@k across k, not just pass@1. RL often sharpens what the base model could already sample; a win only at low k plus entropy collapse is a warning.
+- pass@k is only defined at k=1. Larger k is invalid for language models, so the debate cannot be measured.
+- If pass@1 goes up, the model must have gained new abilities, even if pass@256 is unchanged.
+- The base model always wins at pass@1, and RL only helps at huge k, so you can skip pass@k plots.

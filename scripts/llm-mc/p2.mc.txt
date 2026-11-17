@@ -1,0 +1,259 @@
+=== llm-p2-01
+W A tensor is a 1D storage plus sizes, strides, and an offset. The element at index i is storage[offset + sum i_k * stride_k]. A contiguous (3, 4) float tensor has strides (4, 1). Its transpose has strides (1, 4). A slice like x[1:, :2] only changes offset and sizes/strides; it does not copy. contiguous() copies to a packed layout when you need one.
++ Index = offset + sum(i_k * stride_k). Contiguous (3, 4) has strides (4, 1); the transpose has (1, 4). Slicing changes metadata only; contiguous() may copy.
+- Contiguous (3, 4) has strides (3, 4), and a transpose always copies the storage immediately.
+- Strides are always (1, 1). Offset is the dtype size, and slicing always allocates a new storage.
+- Sizes are in bytes, strides are in pages. x[1:, :2] is illegal on a contiguous tensor.
+
+=== llm-p2-02
+W The dispatcher routes the op through keys such as Autograd, Autocast, and the CUDA backend. Autograd records a grad_fn on the output if grads are required. The CUDA kernel is launched asynchronously, so Python moving on does not mean the GPU has finished. A later .item() or copy to CPU would sync.
++ The dispatcher routes through Autograd, Autocast, and the backend. Autograd records grad_fn, and the CUDA kernel launches asynchronously.
+- PyTorch runs the add on the CPU first, then copies the result to CUDA, always synchronously, with no autograd node.
+- torch.add on CUDA tensors that require grad is illegal; you must write the kernel yourself.
+- Autocast disables autograd, and the kernel is always finished before torch.add returns.
+
+=== llm-p2-03
+W Autograd builds a graph of grad_fn nodes linked by next_functions. Saved tensors are the activations needed for backward, and they often dominate memory. In-place ops bump a version counter; if a saved tensor was modified in place, backward raises, because the saved value is no longer the one the math assumed.
++ grad_fn nodes are linked by next_functions, saved tensors hold backward inputs, and version counters catch in-place edits that would corrupt backward.
+- The graph is rebuilt from scratch with finite differences at every backward, so in-place ops are always safe.
+- saved tensors are only the parameters, not activations, so in-place ops on hidden states cannot raise.
+- next_functions is a CUDA stream. In-place ops are recommended to save memory and never error.
+
+=== llm-nn-14
+CODE
+W The safe order is zero_grad, forward, backward, clip (optional), optimizer step, then the LR schedule. Zeroing after step, or stepping before backward, are classic bugs. set_to_none=True is a cheap way to zero.
++ opt.zero_grad(set_to_none=True)
+loss = model(x, y)
+loss.backward()
+torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+opt.step()
+scheduler.step()
+- opt.step()
+loss.backward()
+opt.zero_grad()
+- loss.backward()
+opt.step()
+opt.zero_grad()
+loss = model(x, y)
+- for p in model.parameters():
+    p.grad = p.data
+opt.step()
+
+=== llm-nn-15
+W requires_grad=True tells autograd to track that tensor. torch.no_grad() is a context that disables tracking, which is what you want at eval or when you just want logits. .detach() returns a tensor that shares storage but is not connected to the graph, so gradients stop there. detach is for one value; no_grad is for a whole block.
++ requires_grad tracks a tensor. no_grad() turns tracking off for a block (use it at eval). detach() stops the graph at one value.
+- no_grad() deletes parameters. detach() copies the tensor and keeps it in the graph. requires_grad is only for buffers.
+- All three are synonyms. You can use them interchangeably in a training step.
+- requires_grad is a CUDA flag. no_grad() is required during backward or grads are not computed.
+
+=== llm-nn-16
+W Subclass nn.Module, set submodules and nn.Parameter in __init__, and write forward. Parameters registered that way show up in .parameters() and get saved. Use register_buffer for fixed state like a causal mask or running stats, so it moves with .to(device) but is not trained. A raw Tensor attribute will not.
++ Register trainable weights as nn.Parameter (or child modules) and fixed state with register_buffer, so they move with the module and only parameters get grads.
+- Store weights as plain tensors on self, and buffers as global variables. nn.Parameter is only for the optimizer LR.
+- Every buffer should have requires_grad=True, and you should not use nn.Module, only a Python function.
+- register_buffer trains the tensor, and nn.Parameter is for values you do not want in the state dict.
+
+=== llm-nn-17
+W First try to overfit one batch: if loss cannot go near zero, you have a bug (wrong labels, masking, LR, train/eval mode, unused params). Then check shapes, whether the loss is actually connected to the parameters, the learning rate, and that you call model.train(). Do not start by changing the architecture.
++ First try to overfit one batch. If you cannot, it is a bug in data, loss, or the step, not a reason to redesign the model.
+- Immediately switch architectures and raise the dropout to 0.9, because a flat loss means overfitting.
+- The first check is to buy more GPUs. A flat loss at the start is usually a hardware issue.
+- Lower the learning rate to 1e-12 and train longer before inspecting labels or the backward hook.
+
+=== llm-nn-18
+W F.cross_entropy expects class logits of shape (N, C) and targets of shape (N,). A (B, T, V) tensor needs to be flattened to (B*T, V) and targets to (B*T,). If you pass (B, T, V) directly, the C dim is in the wrong place and you can get a silent or confusing error, or a wrong reduction.
++ cross_entropy wants (N, C) logits and (N,) targets. Flatten B and T first: (B*T, V) and (B*T,).
+- The call is already correct, because cross_entropy treats the last two dims as batch automatically.
+- You should softmax first, then call cross_entropy on (B, T, V), which expects probabilities, not logits.
+- Swap to (V, B, T) and keep targets as (B, T). The class dim is expected first, and sequence is fine as-is.
+
+=== llm-nn-19
+W view() requires a contiguous layout in memory. After a transpose or some slices, the strides are no longer packed, so view() fails. contiguous() copies into packed order. reshape() will view if it can and copy if it must. The usual pattern is x.transpose(...).contiguous().view(...) or just reshape.
++ Transpose breaks contiguity, so view() can fail. Call contiguous() and then view, or use reshape, which copies if needed.
+- view() always copies, and reshape() always fails after a transpose. contiguous() deletes autograd history.
+- They are identical, and neither ever copies. Contiguity is a CUDA-only idea.
+- .contiguous() is required after every operation, including add, or the tensor is invalid.
+
+=== llm-nn-20
+W Gradient accumulation splits a large batch into K micro-batches, runs backward on each, and steps once. The classic bug is not scaling the loss, so the gradients are K times too large. Divide each micro-loss by K, or better, by the total number of tokens in the window, so the scale matches the intended mean.
++ Split a batch into K micro-batches, backward on each, step once. Divide the loss by K, or by the total token count, or the grads are K times too big.
+- Accumulation means calling opt.step() on every micro-batch and summing the weights. Do not divide the loss.
+- It is a way to increase the learning rate without changing the batch. There is no scaling bug.
+- You should multiply the loss by K so that the accumulated gradient stays in a numerically safe range.
+
+=== llm-nn-21
+W torch.compile traces and fuses the training step so it runs fewer, bigger kernels. Autocast in bf16 cuts memory and can speed matmuls without a grad scaler. fp16 autocast usually does need a GradScaler because fp16 underflows grads. The usual compile issues are graph breaks and unexpected recompiles; the usual autocast issue is leaving some ops in the wrong dtype or skipping the scaler in fp16.
++ compile fuses and speeds the graph. Autocast bf16 saves memory and time; fp16 usually needs a GradScaler. Watch graph breaks and dtype bugs.
+- compile is only a debugger, and autocast always requires a scaler, including in bf16 and fp32.
+- Mixed precision means storing weights in int8 during training. torch.compile disables autograd.
+- The most common issue is that compile and autocast cannot be used together, so you must pick one.
+
+=== llm-nn-22
+W Reach first for smaller micro-batches with accumulation, activation checkpointing, bf16, FlashAttention, then sharding (FSDP) if you still do not fit. Also make sure logs use .item() so you are not keeping a long autograd graph alive. Do not start by buying a bigger GPU until those are tried.
++ Micro-batch and accumulate, checkpoint activations, use bf16, FlashAttention, then shard. And .item() your logged losses so graphs do not pile up.
+- First delete residual connections and LayerNorm, which are the main memory users, then lower the vocab.
+- The only fix is to switch to CPU training. Other tricks cannot reduce peak memory by much.
+- Store all activations in fp64 for safety, and log the full loss tensor without .item() so you can backward later.
+
+=== llm-nn-23
+W loss.item() copies a scalar to the CPU and frees the Python reference to the graph, which is what you want for logging. It also synchronizes the GPU, so logging every step can stall the train loop. A mysterious slowdown that appeared when you added logging often is that sync. Log every N steps.
++ .item() frees the graph but syncs the GPU. Log sparingly, or you will stall the train loop.
+- .item() is asynchronous and never syncs. You should call it on every tensor in the model each step.
+- .item() keeps the graph alive, which is why logging can OOM. Use loss.backward() to log instead.
+- A slowdown after adding .item() means the math is wrong, not that you are syncing the device.
+
+=== llm-nn-25
+W Find the first step where any tensor becomes NaN (not just the logged loss), inspect that batch for bad labels or extreme values, then look for unsafe ops (div by zero, exploding logits, missing clips). Rewind to a last-good checkpoint and skip or shrink the bad batch to test the hypothesis. Do not just lower the LR and hope.
++ Find the first NaN, inspect that batch, then check unsafe ops. Rewind a checkpoint and skip the batch to test the cause.
+- Restart from scratch with fp16 and a 10x learning rate, which usually washes NaNs out.
+- NaNs after 4000 steps always mean the dataset is finished. Loop it and they will disappear.
+- Delete the scaler and clip, and keep training through NaNs so the model can recover on its own.
+
+=== llm-p2-04
+W Profile a few warm, steady training steps, not the first step. In the trace, gaps on the GPU timeline mean you are CPU or IO bound, frequent syncs often come from .item() or copies, and a long tail of tiny non-matmul kernels means you should fuse or compile. Read the profiler instead of guessing.
++ Profile a few steady steps. GPU gaps mean CPU or IO bound, syncs often come from .item(), and many tiny kernels mean fuse or compile.
+- Profile only step 0, and assume any long kernel is a bug. Gaps on the GPU mean you are compute bound.
+- The profiler cannot see CUDA kernels, only Python. If Python looks cheap, the run is healthy.
+- You should add cuda.synchronize() after every op while profiling, which makes the trace more realistic.
+
+=== llm-p2-05
+W Dynamo traces Python bytecode into an FX graph with guards on shapes and types. Inductor then fuses that graph and often emits Triton kernels. A graph break is a place Dynamo falls back to eager, splitting the graph. A recompile happens when guards fail, for example a new input shape. Too many breaks or recompiles eat the speedup.
++ Dynamo traces to FX with guards; Inductor fuses and often emits Triton. Graph breaks split the graph; recompiles happen when guards fail.
+- Dynamo is a CUDA allocator, and Inductor is the autograd engine. Graph breaks are a kind of residual connection.
+- torch.compile never recompiles. Graph breaks are required for speed and should be maximized.
+- Inductor runs only on CPU, and Dynamo erases autograd, so compiled training cannot backward.
+
+=== llm-pt-23
+W Check in order: data loading (GPU idle at the start of steps), communication (all-reduce or sharding waits), the actual matmul kernels, then host overhead (Python, syncs). Measure MFU so you know how far you are from the hardware roof. Fix the current bottleneck before looking at the next one.
++ Profile data, then communication, then kernels, then host overhead, and measure MFU each time.
+- First rewrite all kernels in CUDA, then look at the dataloader last, because kernels are always the bottleneck.
+- Throughput problems are almost always the optimizer math, so you can skip profiling.
+- MFU is only for inference. For training, just watch the loss; if it falls, throughput is fine.
+
+=== llm-p2-06
+W A kernel launch is a grid of blocks. Each block's threads run on a streaming multiprocessor (SM) and can share shared memory and synchronize. Threads are scheduled in warps of 32 that execute in lockstep. Divergence inside a warp is expensive. This is the basic CUDA execution model.
++ A grid of blocks runs on SMs, threads in a block share shared memory, and warps of 32 run in lockstep.
+- A warp is 1024 blocks, and threads in a block cannot share memory. Grids only exist on the CPU.
+- Each thread is an SM, and a block is a single CUDA core. Warps are used only for debugging.
+- Grids, blocks, and warps are PyTorch autograd terms, not hardware scheduling units.
+
+=== llm-p2-07
+W On an H100, registers are the smallest and fastest, then on-chip shared memory (tens of KB per SM), then L2 (tens of MB), then HBM (tens of GB, much lower bandwidth per byte than on-chip). The design rule is: load from HBM once, reuse in shared memory or registers. A kernel that streams every intermediate through HBM will be memory bound.
++ Registers, then shared memory per SM, then L2, then HBM. Load from HBM once and reuse on chip.
+- HBM is faster than registers. Shared memory is larger than HBM on an H100, so tiling is unnecessary.
+- All four levels are the same size and speed on an H100, which is why fusion does not help.
+- Kernel design should spill to HBM as often as possible, so occupancy stays low and accurate.
+
+=== llm-pt-22
+W A kernel is memory bound if it is limited by bytes moved, and compute bound if it is limited by FLOPs. Arithmetic intensity is FLOPs per byte. On an H100 the roofline crossover is around 300 FLOPs/byte; below that you are typically memory bound. Many pointwise ops live far below that line; large matmuls can sit above it.
++ Below about 300 FLOPs per byte on an H100 you are memory bound. Above that you can be compute bound. Intensity is FLOPs/byte.
+- Compute bound means the CPU is busy. Memory bound means RAM on the host is full. The crossover is 2 FLOPs/byte.
+- Everything on an H100 is compute bound because the memory is so fast. Intensity does not matter.
+- The crossover is about 3 FLOPs/byte, the same as a 2012 CPU, so pointwise ops are compute bound.
+
+=== llm-in-06
+W At batch 1, decode does a huge weight read to produce one token, so intensity is low and you are bandwidth bound. A rough ceiling is HBM bandwidth divided by the number of model bytes (for 7B bf16, about 14 GB of weights). On an H100 near 3 TB/s that is on the order of 200 tokens/s, before overhead. You cannot beat "read the whole model once per token" by much at batch 1.
++ Batch-1 decode is bandwidth bound: a rough cap is bandwidth / model bytes, on the order of a couple hundred tokens/s for 7B bf16 on one H100.
+- Batch-1 decode is compute bound, so the cap is peak TFLOPs / 7e9, which is tens of thousands of tokens/s.
+- The upper bound is 1 token/s, because H100 cannot stream 7B weights in under a second.
+- Decode speed at batch 1 equals prefill speed, because both are matmul-bound at that size.
+
+=== llm-in-25
+W Decode intensity scales with batch size, because you reuse the same weights across more tokens. The H100 crossover is around 300 FLOPs/byte, so you need a fairly large batch (often many tens to hundreds, depending on the step) before decode looks compute bound. Small batches stay memory bound.
++ Decode intensity grows with batch size. On an H100 the crossover is about 300 FLOPs/byte, so small batches stay memory bound.
+- Decode becomes compute bound at batch 2 on an H100, because two tokens already fill the SMs.
+- Batch size does not change intensity. Decode is memory bound at every batch, including 4096.
+- The crossover is at batch size 1. Larger batches become more memory bound, not less.
+
+=== llm-p2-08
+W Coalesced access means threads in a warp touch adjacent addresses, so one transaction serves many threads. Walking a row of a row-major matrix is coalesced; walking a column is not, because addresses are a full stride apart. Poor coalescing wastes HBM bandwidth.
++ Adjacent threads should touch adjacent addresses. Walking rows of a row-major matrix is coalesced; walking columns is not.
+- Coalescing means every thread reads the same address. Walking columns is the fast pattern on NVIDIA GPUs.
+- Memory coalescing is an allocator that merges small tensors. It is unrelated to access patterns.
+- Uncoalesced access is faster because it uses more of the cache. You should prefer strided column walks.
+
+=== llm-p2-09
+W In a tiled matmul, a block loads a T by T tile of A and of B into shared memory, computes their product contribution, then slides to the next tile. Each loaded value is reused T times, so arithmetic intensity grows linearly with T, until you are limited by shared memory or registers. That is why tiling is the basic fast matmul design.
++ Load T x T tiles into shared memory and reuse them T times. Intensity grows with tile size, which is why tiling beats a naive HBM loop.
+- Tiling copies each element from HBM once per output, so intensity does not depend on T.
+- Shared-memory tiles are only used for softmax, not matmul, because matmul is already compute bound at T=1.
+- Larger tiles always lower intensity, so the fastest matmul uses a tile of 1.
+
+=== llm-p2-10
+W A GPU reduction is a tree: threads in a block reduce into shared memory, the last warp often finishes with shuffles, then blocks write partials and a second kernel (or atomics) combines them. Floating-add is not associative, and the tree order can change with block count and scheduling, so bit-identical sums are not the default.
++ Tree reduce in shared memory, warp shuffles for the last 32, then combine blocks. Float adds are not associative, so bitwise reproducibility is not the default.
+- Each thread writes to global memory in a loop of n steps. Float sums are always bitwise identical across runs.
+- Reductions must run on the CPU. GPUs cannot sum arrays, and that is why reproducibility is easy.
+- You should use a sequential scan in one thread to keep the sum reproducible and fast.
+
+=== llm-p2-11
+W Occupancy is active warps divided by the maximum a SM can hold, limited by registers and shared memory per block. Higher occupancy helps hide memory latency, but it is not always faster: sometimes lower occupancy with more reuse or better instruction mix wins. Aim for "enough to hide latency," not 100% at all costs.
++ Occupancy is active warps over the max, limited by registers and shared memory. You need enough to hide latency; more reuse can beat higher occupancy.
+- Higher occupancy is always faster, so you should maximize shared memory use per block until occupancy is 100%.
+- Occupancy is the fraction of HBM in use. Registers do not limit it, and 10% is the target.
+- Occupancy only applies to CPUs. On GPUs the only knob is clock speed.
+
+=== llm-in-14
+W Fusion cuts intermediate writes to HBM. Memory-bound pointwise chains (bias, activation, residual add, dropout) benefit most, because their math is cheap compared with the extra round trips. A huge matmul is often already compute bound, so fusing a tiny epilogue still helps a bit, but the big wins are the bandwidth-bound tails.
++ Fusion helps most on memory-bound ops by cutting HBM round trips. Pointwise epilogues are the usual win.
+- Fusion helps most on already compute-bound matmuls, and it rarely matters for pointwise ops.
+- Kernel fusion is only a Python syntax feature and does not change bytes moved.
+- You should not fuse memory-bound ops, because each op needs its own trip to HBM to stay accurate.
+
+=== llm-p2-12
+CODE
+W Triton gives you one program per block of elements, not one per thread like CUDA. You compute offsets = pid * BLOCK + arange(BLOCK), mask out-of-bounds lanes, load, compute, and store. The compiler handles a lot of the thread-level work. Vector add is the usual first kernel.
++ @triton.jit
+def add_kernel(x_ptr, y_ptr, out_ptr, n, BLOCK: tl.constexpr):
+    pid = tl.program_id(0)
+    offs = pid * BLOCK + tl.arange(0, BLOCK)
+    mask = offs < n
+    x = tl.load(x_ptr + offs, mask=mask)
+    y = tl.load(y_ptr + offs, mask=mask)
+    tl.store(out_ptr + offs, x + y, mask=mask)
+- @triton.jit
+def add_kernel(x, y):
+    return x + y  # no offsets, no mask, no program id
+- def add_kernel(x_ptr, y_ptr, out_ptr, n):
+    for i in range(n):
+        out_ptr[i] = x_ptr[i]  # serial Python, ignores y
+- @triton.jit
+def add_kernel(x_ptr, y_ptr, out_ptr, n, BLOCK: tl.constexpr):
+    tl.store(out_ptr, tl.load(x_ptr) * tl.load(y_ptr))
+
+=== llm-p2-13
+CODE
+W A fused row-wise softmax is one Triton program per row: load the row (masking tail with -inf), subtract the max, exp, divide by the sum, store once. Eager softmax built from several kernels would read and write the row multiple times. Bytes moved drop a lot, which is why the fused kernel is faster when you are memory bound.
++ One program per row: masked load with -inf, subtract max, exp, divide by the sum, one store. Bytes moved drop versus a chain of eager ops.
+- Several programs per row, one for max, one for exp, one for sum, each storing back to HBM, which is faster because of occupancy.
+- Softmax in Triton should skip the max subtract and load columns instead of rows, to improve coalescing.
+- The fused kernel is slower than eager on memory-bound rows, and is only used for debugging.
+
+=== llm-p2-14
+CODE
+W RMSNorm forward, per row: load in fp32 for the reduction, rstd = 1 / sqrt(mean(x^2) + eps), optionally save rstd for backward, then y = x * rstd * weight. Do not subtract a mean (that would be LayerNorm). Keep the reduction in a higher precision than the store if the dtype is low precision.
++ Per row, load in fp32, rstd = 1 / sqrt(mean(x^2) + eps), save rstd, then y = x * rstd * w.
+- Per row, subtract the mean, then divide by the standard deviation, and throw away rstd, which is RMSNorm.
+- RMSNorm is a global scalar over the whole batch, not a per-row stat, and it has no weight.
+- y = x / x.max() per row, which is the Triton RMSNorm used in Llama.
+
+=== llm-p2-15
+W With y_i = g_i x_i r and r = (mean(x^2)+eps)^(-1/2), the weight grad dg is the sum over the row of dy * x * r. The input grad is dx = r u - (r^3 / d) x sum(u x), where u = dy * g. That second term is the part through r, and it makes dx orthogonal to x in the simple case. Missing the projection term is the usual bug.
++ dg = sum(dy * x * r). dx = r u - (r^3 / d) x sum(u x) with u = dy * g. That last term is the path through r.
+- dx = dy * g, and dg = sum(dy), with no dependence on r or on x. RMSNorm backward ignores the statistic.
+- dx = r u + (r^3 / d) x sum(u x), with the projection added instead of subtracted.
+- There is no backward for RMSNorm because r is a constant, so dx is zero and only g is trained.
+
+=== llm-p2-16
+W First assert_close against a reference. Then warm up, synchronize, and take a median over many launches, sweeping the sizes you care about. For a memory-bound kernel, report GB/s and compare to peak HBM bandwidth, not just a milliseconds number. A "fast" kernel that is at 10% of bandwidth still has a lot left.
++ Check correctness first, then warm up, sync, and take a median over a size sweep. For memory-bound kernels, report GB/s against peak bandwidth.
+- Time one cold launch with no warmup and no sync, and report FLOPs even if the kernel is memory bound.
+- If it is faster than PyTorch eager on one size, skip assert_close. Bandwidth numbers are not used for memory-bound work.
+- Benchmark only in a debugger, without a reference, and quote the best of one run.
+
+=== llm-p2-17
+W @triton.autotune runs a set of configs (BLOCK size, num_warps, num_stages, and similar knobs) for each key, such as a given size, and caches the fastest. It is a search over launch configs, not a change to the math. Without a key, it may retune too often or too rarely.
++ It benchmarks configs such as BLOCK, num_warps, and num_stages for each key and caches the winner.
+- It rewrites your kernel math with a better algorithm, and there are no launch knobs to search.
+- It only sets the learning rate of a training loop. BLOCK size is not autotuned.
+- Autotune always picks the largest BLOCK and num_warps, with no benchmarking.
